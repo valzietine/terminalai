@@ -28,7 +28,6 @@ def test_payload_includes_reasoning_effort_when_configured() -> None:
     client = LLMClient(
         api_key=None,
         model="gpt-5.2-codex",
-        system_prompt="custom prompt",
         reasoning_effort="medium",
     )
 
@@ -38,26 +37,25 @@ def test_payload_includes_reasoning_effort_when_configured() -> None:
 
 
 def test_payload_omits_reasoning_effort_when_unset() -> None:
-    client = LLMClient(api_key=None, model="gpt-4.1-mini", system_prompt="custom prompt")
+    client = LLMClient(api_key=None, model="gpt-4.1-mini")
 
     payload = client._build_payload("test goal", [])
 
     assert "reasoning" not in payload
 
 
-def test_payload_uses_custom_system_prompt() -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+def test_payload_uses_hardcoded_system_prompt() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     payload = client._build_payload("test goal", [])
 
-    assert payload["input"][0]["content"] == "be careful"
+    assert "expert terminal orchestration assistant" in payload["input"][0]["content"]
 
 
 def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
     client = LLMClient(
         api_key=None,
         model="gpt-5.2",
-        system_prompt="be careful",
         allow_user_feedback_pause=True,
     )
 
@@ -71,7 +69,7 @@ def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
 
 
 def test_payload_hides_user_feedback_pause_controls_when_disabled() -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     payload = client._build_payload("test goal", [])
 
@@ -82,7 +80,7 @@ def test_payload_hides_user_feedback_pause_controls_when_disabled() -> None:
 
 
 def test_payload_user_message_formats_goal_and_context() -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     payload = client._build_payload(
         "find large files",
@@ -103,7 +101,6 @@ def test_payload_trims_session_context_to_max_chars() -> None:
     client = LLMClient(
         api_key=None,
         model="gpt-5.2",
-        system_prompt="be careful",
         max_context_chars=120,
     )
 
@@ -124,7 +121,6 @@ def test_payload_empty_context_when_limit_non_positive() -> None:
     client = LLMClient(
         api_key=None,
         model="gpt-5.2",
-        system_prompt="be careful",
         max_context_chars=0,
     )
 
@@ -133,8 +129,9 @@ def test_payload_empty_context_when_limit_non_positive() -> None:
     user_message = payload["input"][-1]["content"]
     assert "Session context (ordered oldest to newest):\n[]" in user_message
 
+
 def test_payload_includes_phase_metadata_schema() -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     payload = client._build_payload("test goal", [])
 
@@ -190,8 +187,9 @@ def test_to_model_decision_preserves_valid_phase_metadata() -> None:
     assert decision.verification_command == "pytest -q"
     assert decision.risk_level == "low"
 
+
 def test_next_command_returns_safe_decision_on_http_error(monkeypatch) -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     def fake_urlopen(*_args, **_kwargs):
         raise HTTPError(
@@ -212,7 +210,7 @@ def test_next_command_returns_safe_decision_on_http_error(monkeypatch) -> None:
 
 
 def test_next_command_returns_safe_decision_on_invalid_json_response(monkeypatch) -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     class FakeResponse:
         def __enter__(self):
@@ -234,7 +232,7 @@ def test_next_command_returns_safe_decision_on_invalid_json_response(monkeypatch
 
 
 def test_next_command_returns_safe_decision_when_missing_output_text(monkeypatch) -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     class FakeResponse:
         def __enter__(self):
@@ -256,7 +254,7 @@ def test_next_command_returns_safe_decision_when_missing_output_text(monkeypatch
 
 
 def test_next_command_http_error_includes_response_excerpt(monkeypatch) -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+    client = LLMClient(api_key=None, model="gpt-5.2")
 
     class FakeHTTPError(HTTPError):
         def __init__(self):

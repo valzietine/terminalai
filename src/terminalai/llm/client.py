@@ -11,6 +11,43 @@ from urllib.error import HTTPError, URLError
 
 from terminalai.agent.models import DecisionPhase, RiskLevel
 
+DEFAULT_SYSTEM_PROMPT = " ".join(
+    [
+        "You are TerminalAI, an expert terminal orchestration assistant.",
+        (
+            "First orient yourself to the machine context and execution history,"
+            " then choose the single best next shell command for the user's goal."
+        ),
+        "Prefer safe, reversible, and idempotent operations.",
+        (
+            "Avoid destructive commands unless they are explicitly requested"
+            " and clearly justified by the goal."
+        ),
+        (
+            "If the goal is complete, or no command should be run, set"
+            " command to null and complete to true."
+        ),
+        (
+            "Always return strict JSON with keys: command (string or null),"
+            " notes (string or null), complete (boolean), phase"
+            " (analysis|mutation|verification|completion), expected_outcome"
+            " (string or null), verification_command (string or null), and"
+            " risk_level (low|medium|high or null)."
+        ),
+        (
+            "Use notes as a concise hint that explains what is happening now,"
+            " what just happened, and what I will do next, unless the goal is"
+            " complete."
+        ),
+        (
+            "When user feedback pause is enabled, include ask_user"
+            " (boolean) and user_question (string or null): set ask_user=true"
+            " only for one critical missing fact that blocks safe progress,"
+            " set command to null, and keep complete=false."
+        ),
+    ]
+)
+
 VALID_PHASES: set[DecisionPhase] = {"analysis", "mutation", "verification", "completion"}
 VALID_RISK_LEVELS: set[RiskLevel] = {"low", "medium", "high"}
 LOGGER = logging.getLogger(__name__)
@@ -39,7 +76,6 @@ class LLMClient:
         *,
         api_key: str | None,
         model: str,
-        system_prompt: str,
         max_context_chars: int = 12000,
         reasoning_effort: str | None = None,
         api_url: str = "https://api.openai.com/v1/responses",
@@ -48,7 +84,7 @@ class LLMClient:
     ) -> None:
         self.api_key = api_key
         self.model = model
-        self.system_prompt = system_prompt
+        self.system_prompt = DEFAULT_SYSTEM_PROMPT
         self.max_context_chars = max_context_chars
         self.reasoning_effort = reasoning_effort
         self.api_url = api_url
@@ -93,9 +129,7 @@ class LLMClient:
             details = f"Model request failed with HTTP {exc.code}: {exc.reason}"
             if body_excerpt:
                 details = f"{details}. Response body: {body_excerpt}"
-            return self._safe_failure_decision(
-                details
-            )
+            return self._safe_failure_decision(details)
         except URLError as exc:
             LOGGER.error(
                 "llm_request_transport_error",
@@ -173,14 +207,14 @@ class LLMClient:
                 }
             )
         input_messages.append(
-                {
-                    "role": "user",
-                    "content": self._build_user_message(
-                        goal,
-                        session_context,
-                        max_context_chars=self.max_context_chars,
-                    ),
-                }
+            {
+                "role": "user",
+                "content": self._build_user_message(
+                    goal,
+                    session_context,
+                    max_context_chars=self.max_context_chars,
+                ),
+            }
         )
 
         payload: dict[str, object] = {

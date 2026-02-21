@@ -175,7 +175,6 @@ def test_agent_loop_resumes_when_feedback_is_collected(tmp_path) -> None:
     assert shell.commands == ["echo resumed"]
 
 
-
 class CompletionOnlyClient:
     def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
         assert goal == "summarize"
@@ -326,8 +325,6 @@ def test_agent_loop_allows_destructive_commands_when_allow_unsafe_enabled(tmp_pa
     assert "returncode=0" in turns[0].output
 
 
-
-
 def test_agent_loop_does_not_auto_confirm_when_safety_mode_off(tmp_path) -> None:
     shell = FakeShell()
     loop = AgentLoop(
@@ -342,6 +339,7 @@ def test_agent_loop_does_not_auto_confirm_when_safety_mode_off(tmp_path) -> None
 
     assert shell.confirmed_calls == [False]
     assert "returncode=126" in turns[0].output
+
 
 class GuardrailBlockedClient:
     def __init__(self) -> None:
@@ -481,8 +479,7 @@ def test_agent_loop_does_not_append_continuation_prompt_for_non_final_turns(tmp_
     assert all(not turn.overarching_goal_complete for turn in turns)
     for turn in turns:
         assert (
-            turn.next_action_hint is None
-            or CONTINUATION_PROMPT_TEXT not in turn.next_action_hint
+            turn.next_action_hint is None or CONTINUATION_PROMPT_TEXT not in turn.next_action_hint
         )
 
 
@@ -686,6 +683,7 @@ def test_agent_loop_logs_phase_metadata(tmp_path) -> None:
     assert payload["verification_command"] is None
     assert payload["risk_level"] is None
 
+
 def test_agent_loop_includes_prior_turns_in_session_context(tmp_path) -> None:
     shell = FakeShell()
 
@@ -810,6 +808,7 @@ def test_agent_loop_emits_verification_event_with_classification(
     assert verification_events[0]["status"] == status
     assert verification_events[0]["signal"] == signal
     assert verification_events[0]["returncode"] == result.returncode
+
 
 def test_agent_loop_emits_turns_as_they_are_produced(tmp_path) -> None:
     shell = FakeShell()
