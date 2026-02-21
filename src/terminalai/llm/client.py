@@ -14,6 +14,8 @@ class ModelDecision:
     command: str | None
     notes: str | None = None
     complete: bool = False
+    ask_user: bool = False
+    user_question: str | None = None
 
 
 class LLMClient:
@@ -28,6 +30,7 @@ class LLMClient:
         reasoning_effort: str | None = None,
         api_url: str = "https://api.openai.com/v1/responses",
         timeout: float = 60.0,
+        allow_user_feedback_pause: bool = False,
     ) -> None:
         self.api_key = api_key
         self.model = model
@@ -35,6 +38,7 @@ class LLMClient:
         self.reasoning_effort = reasoning_effort
         self.api_url = api_url
         self.timeout = timeout
+        self.allow_user_feedback_pause = allow_user_feedback_pause
 
     def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
         payload = self._build_payload(goal, session_context)
@@ -52,23 +56,51 @@ class LLMClient:
             command=parsed.get("command"),
             notes=parsed.get("notes"),
             complete=bool(parsed.get("complete", False)),
+            ask_user=bool(parsed.get("ask_user", False)),
+            user_question=parsed.get("user_question"),
         )
 
     def _build_payload(
         self, goal: str, session_context: list[dict[str, object]]
     ) -> dict[str, object]:
-        payload: dict[str, object] = {
-            "model": self.model,
-            "input": [
+        schema_properties: dict[str, object] = {
+            "command": {"type": ["string", "null"]},
+            "notes": {"type": ["string", "null"]},
+            "complete": {"type": "boolean"},
+        }
+        required_keys = ["command", "complete", "notes"]
+        if self.allow_user_feedback_pause:
+            schema_properties["ask_user"] = {"type": "boolean"}
+            schema_properties["user_question"] = {"type": ["string", "null"]}
+            required_keys.extend(["ask_user", "user_question"])
+
+        input_messages: list[dict[str, str]] = [
+            {
+                "role": "system",
+                "content": self.system_prompt,
+            }
+        ]
+        if self.allow_user_feedback_pause:
+            input_messages.append(
                 {
                     "role": "system",
-                    "content": self.system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps({"goal": goal, "context": session_context}),
-                },
-            ],
+                    "content": (
+                        "You may set ask_user=true and provide user_question only when a"
+                        " critical missing fact blocks safe progress. Ask only one concise"
+                        " question, set command to null, and set complete to false."
+                    ),
+                }
+            )
+        input_messages.append(
+            {
+                "role": "user",
+                "content": json.dumps({"goal": goal, "context": session_context}),
+            }
+        )
+
+        payload: dict[str, object] = {
+            "model": self.model,
+            "input": input_messages,
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -76,12 +108,8 @@ class LLMClient:
                     "strict": True,
                     "schema": {
                         "type": "object",
-                        "properties": {
-                            "command": {"type": ["string", "null"]},
-                            "notes": {"type": ["string", "null"]},
-                            "complete": {"type": "boolean"},
-                        },
-                        "required": ["command", "complete", "notes"],
+                        "properties": schema_properties,
+                        "required": required_keys,
                         "additionalProperties": False,
                     },
                 }

@@ -48,3 +48,31 @@ def test_payload_uses_custom_system_prompt() -> None:
     payload = client._build_payload("test goal", [])
 
     assert payload["input"][0]["content"] == "be careful"
+
+
+def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
+    client = LLMClient(
+        api_key=None,
+        model="gpt-5.2",
+        system_prompt="be careful",
+        allow_user_feedback_pause=True,
+    )
+
+    payload = client._build_payload("test goal", [])
+
+    schema = payload["text"]["format"]["schema"]
+    assert "ask_user" in schema["properties"]
+    assert "user_question" in schema["properties"]
+    assert "ask_user" in schema["required"]
+    assert "critical missing fact" in payload["input"][1]["content"]
+
+
+def test_payload_hides_user_feedback_pause_controls_when_disabled() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    payload = client._build_payload("test goal", [])
+
+    schema = payload["text"]["format"]["schema"]
+    assert "ask_user" not in schema["properties"]
+    assert "user_question" not in schema["properties"]
+    assert len(payload["input"]) == 2

@@ -31,3 +31,4 @@ class SessionTurn:
     command: str
     output: str
     next_action_hint: str | None = None
+    awaiting_user_feedback: bool = False

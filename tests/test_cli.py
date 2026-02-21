@@ -18,6 +18,7 @@ def _fake_config() -> AppConfig:
         api_url="https://api.openai.com/v1/responses",
         log_dir="logs",
         system_prompt="prompt",
+        allow_user_feedback_pause=False,
     )
 
 
@@ -28,6 +29,7 @@ def test_parser_defaults() -> None:
     assert args.model is None
     assert args.max_steps == 20
     assert args.cwd is None
+    assert args.allow_user_feedback_pause is False
 
 
 def test_parser_accepts_cwd() -> None:

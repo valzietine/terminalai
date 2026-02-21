@@ -36,6 +36,17 @@ class AgentLoop:
         for _ in range(self.max_steps):
             context = [asdict(turn) for turn in turns]
             decision = self.client.next_command(goal=goal, session_context=context)
+            if decision.ask_user and decision.user_question:
+                turn = SessionTurn(
+                    input=goal,
+                    command="",
+                    output="",
+                    next_action_hint=decision.user_question,
+                    awaiting_user_feedback=True,
+                )
+                turns.append(turn)
+                self._append_log(turn)
+                break
             if decision.complete or not decision.command:
                 break
 
