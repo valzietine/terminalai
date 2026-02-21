@@ -326,42 +326,6 @@ def test_agent_loop_allows_destructive_commands_when_allow_unsafe_enabled(tmp_pa
     assert "returncode=0" in turns[0].output
 
 
-class SessionMemoryClient:
-    def __init__(self) -> None:
-        self.calls = 0
-        self.second_run_context: list[dict[str, object]] = []
-
-    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
-        self.calls += 1
-        if self.calls == 1:
-            assert goal == "first task"
-            return ModelDecision(command="echo first", notes="continue", complete=False)
-        if self.calls == 2:
-            return ModelDecision(command=None, notes="done", complete=True)
-
-        assert goal == "second task"
-        self.second_run_context = session_context
-        return ModelDecision(command=None, notes="done", complete=True)
-
-
-def test_agent_loop_retains_session_history_across_runs(tmp_path) -> None:
-    shell = FakeShell()
-    client = SessionMemoryClient()
-    loop = AgentLoop(client=client, shell=shell, log_dir=tmp_path, max_steps=2)
-
-    first_turns = loop.run("first task")
-    second_turns = loop.run("second task")
-
-    assert first_turns[0].command == "echo first"
-    assert second_turns == []
-    historical_commands = [
-        event.get("command")
-        for event in client.second_run_context
-        if isinstance(event.get("command"), str)
-    ]
-    assert "echo first" in historical_commands
-
-
 class GuardrailBlockedClient:
     def __init__(self) -> None:
         self.calls = 0

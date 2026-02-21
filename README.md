@@ -128,17 +128,6 @@ Your response: <you type here>
 After you answer, the same run continues automatically. The follow-up model turn receives both
 the original goal and your new response in `session_context`.
 
-When a run reaches a terminal state (for example model-complete, cancelled by user choice, or
-step-budget exhausted), the CLI can show a continuation prompt:
-
-```text
-Task finished. Do you want to keep going with new instructions? [y/N]
-```
-
-If you answer yes, `terminalai` asks for a new instruction and starts a fresh task in the same
-session, reusing in-memory context from prior turns so follow-up tasks can build on what already
-happened.
-
 This section documents the **current** output contract. If the CLI output format changes, update this section in the same change.
 
 ### Environment variables
@@ -153,8 +142,6 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
 - `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
 - `TERMINALAI_CONFIRM_BEFORE_COMPLETE`: when true, asks the user to confirm before ending after the model marks the task complete. If the user declines, the CLI captures follow-up objectives/questions and continues the run with that feedback.
-- `TERMINALAI_COMPLETION_PROMPT_ENABLED`: when true (default), asks whether to continue with a new instruction after each terminal run state.
-- `TERMINALAI_COMPLETION_PROMPT_TEXT`: override text for the continuation prompt (default: `Task finished. Do you want to keep going with new instructions?`).
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
@@ -197,8 +184,6 @@ or platform defaults at runtime.
     }
   },
   "confirm_before_complete": false,
-  "completion_prompt_enabled": true,
-  "completion_prompt_text": "Task finished. Do you want to keep going with new instructions?",
   "shell": null,
   "max_steps": 20,
   "cwd": null,

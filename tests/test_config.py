@@ -31,10 +31,6 @@ def test_app_config_loads_openai_and_model_reasoning_from_file(tmp_path, monkeyp
     assert config.log_dir == "test-logs"
     assert config.allow_user_feedback_pause is False
     assert config.confirm_before_complete is False
-    assert config.completion_prompt_enabled is True
-    assert config.completion_prompt_text == (
-        "Task finished. Do you want to keep going with new instructions?"
-    )
 
 
 def test_env_overrides_reasoning_effort(tmp_path, monkeypatch) -> None:
@@ -173,35 +169,6 @@ def test_runtime_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
     assert env_config.shell == "bash"
     assert env_config.max_steps == 7
     assert env_config.working_directory == "~/project"
-
-
-def test_completion_prompt_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
-    config_path = tmp_path / "terminalai.config.json"
-    config_path.write_text(
-        json.dumps(
-            {
-                "default_model": "gpt-5.2",
-                "completion_prompt_enabled": False,
-                "completion_prompt_text": "Session done. Continue?",
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
-    monkeypatch.delenv("TERMINALAI_COMPLETION_PROMPT_ENABLED", raising=False)
-    monkeypatch.delenv("TERMINALAI_COMPLETION_PROMPT_TEXT", raising=False)
-
-    file_config = AppConfig.from_env()
-    assert file_config.completion_prompt_enabled is False
-    assert file_config.completion_prompt_text == "Session done. Continue?"
-
-    monkeypatch.setenv("TERMINALAI_COMPLETION_PROMPT_ENABLED", "true")
-    monkeypatch.setenv("TERMINALAI_COMPLETION_PROMPT_TEXT", "Task complete. Keep going?")
-
-    env_config = AppConfig.from_env()
-    assert env_config.completion_prompt_enabled is True
-    assert env_config.completion_prompt_text == "Task complete. Keep going?"
 
 
 def test_local_config_auto_loaded_without_env_override(tmp_path, monkeypatch) -> None:
