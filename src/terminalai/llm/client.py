@@ -222,6 +222,8 @@ class LLMClient:
             "Session context (ordered oldest to newest):\n"
             f"{context_json}\n\n"
             "Use both the goal and context to decide the next safest, most useful step."
+            " Set notes to a concise 'what I will do next' hint for the immediate"
+            " next step; avoid discussing unrelated internal mistakes."
         )
 
     @staticmethod

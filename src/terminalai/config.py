@@ -30,6 +30,10 @@ DEFAULT_SYSTEM_PROMPT = " ".join(
             "Always return strict JSON with keys: command (string or null),"
             " notes (string or null), complete (boolean)."
         ),
+        (
+            "Use notes as a concise 'what I will do next' hint focused on the"
+            " immediate next step, unless the goal is complete."
+        ),
     ]
 )
 
