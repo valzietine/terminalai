@@ -57,6 +57,7 @@ class AgentLoop:
         self.continuation_prompt_enabled = continuation_prompt_enabled
         self.auto_progress_turns = auto_progress_turns
         self.request_turn_progress = request_turn_progress
+        self._session_turn_history: list[SessionTurn] = []
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
@@ -64,7 +65,6 @@ class AgentLoop:
         safety_policy_context = self._safety_policy_context()
 
         exhausted_step_budget = True
-        overarching_goal_complete = False
         for step_index in range(self.max_steps):
             if not self.auto_progress_turns and self.request_turn_progress:
                 should_continue, instruction = self.request_turn_progress(step_index + 1)
@@ -82,7 +82,8 @@ class AgentLoop:
 
             step_context = self._step_budget_context(step_index)
             context = (
-                [self._serialize_turn(turn) for turn in turns]
+                [self._serialize_turn(turn) for turn in self._session_turn_history]
+                + [self._serialize_turn(turn) for turn in turns]
                 + [dict(event) for event in context_events]
                 + [step_context, safety_policy_context]
             )
@@ -146,8 +147,31 @@ class AgentLoop:
                             complete_signal=decision.complete,
                         )
                         continue
+                completion_hint = decision.notes
+                if not completion_hint:
+                    completion_hint = (
+                        "Model marked the task complete."
+                        if decision.complete
+                        else "Model did not provide a command; ending this run."
+                    )
+                turn = SessionTurn(
+                    input=goal,
+                    command="",
+                    output="",
+                    next_action_hint=completion_hint,
+                    turn_complete=True,
+                    overarching_goal_complete=bool(decision.complete),
+                )
+                if decision.complete:
+                    self._append_continuation_prompt([turn])
+                turns.append(turn)
+                self._append_log(
+                    turn,
+                    goal=goal,
+                    step_index=step_index + 1,
+                    complete_signal=decision.complete,
+                )
                 exhausted_step_budget = False
-                overarching_goal_complete = bool(decision.complete)
                 break
 
             step = AgentStep(goal=goal, proposed_command=decision.command)
@@ -269,14 +293,15 @@ class AgentLoop:
                 complete_signal=False,
             )
 
-        if overarching_goal_complete:
+        if turns and turns[-1].overarching_goal_complete:
             self._append_context_event(
                 context_events,
                 event_type="goal_completion",
                 goal=goal,
                 overarching_goal_complete=True,
             )
-            self._append_continuation_prompt(turns)
+
+        self._session_turn_history.extend(turns)
 
         return turns
 

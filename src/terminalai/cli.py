@@ -111,16 +111,30 @@ def main() -> int:
         request_turn_progress=_request_turn_progress,
     )
 
-    turns = loop.run(goal)
-    if not turns:
-        print("Session ended without command execution.")
-        return 0
+    current_goal = goal
+    while True:
+        turns = loop.run(current_goal)
+        if not turns:
+            print("Session ended without command execution.")
+            return 0
 
-    for idx, turn in enumerate(turns, start=1):
-        if config.readable_cli_output:
-            print(_render_turn(turn, idx))
-            continue
-        _print_turn_legacy(turn, idx)
+        for idx, turn in enumerate(turns, start=1):
+            if config.readable_cli_output:
+                print(_render_turn(turn, idx))
+                continue
+            _print_turn_legacy(turn, idx)
+
+        if not _should_offer_continuation(turns[-1], config.continuation_prompt_enabled):
+            break
+
+        if not _confirm_continuation():
+            break
+
+        next_goal = input("New instruction: ").strip()
+        if not next_goal:
+            print("No instruction provided. Ending session.")
+            break
+        current_goal = next_goal
 
     LOGGER.debug("shell_adapter_selected", extra={"shell": adapter.name})
     return 0
@@ -135,6 +149,19 @@ def _request_turn_progress(step_number: int) -> tuple[bool, str | None]:
     if response.lower() in {"q", "quit", "exit"}:
         return False, None
     return True, response or None
+
+
+def _should_offer_continuation(final_turn: SessionTurn, continuation_prompt_enabled: bool) -> bool:
+    return (
+        continuation_prompt_enabled
+        and final_turn.overarching_goal_complete
+        and final_turn.continuation_prompt_added
+    )
+
+
+def _confirm_continuation() -> bool:
+    choice = input("Continue with new instructions? [y/N]: ").strip().lower()
+    return choice in {"y", "yes"}
 
 def _confirm_command_execution(command: str) -> bool:
     print("\n=== DESTRUCTIVE COMMAND CONFIRMATION ===")

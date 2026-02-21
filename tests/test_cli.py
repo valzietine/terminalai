@@ -286,3 +286,68 @@ def test_main_uses_legacy_output_when_readable_cli_disabled(
     assert "[1] $ echo resumed" in out
     assert "hint: next" in out
     assert "=== Turn" not in out
+
+
+def test_should_offer_continuation_requires_completion_and_flag() -> None:
+    turn = SessionTurn(
+        input="goal",
+        command="",
+        output="",
+        turn_complete=True,
+        overarching_goal_complete=True,
+        continuation_prompt_added=True,
+    )
+
+    assert cli._should_offer_continuation(turn, True) is True
+    assert cli._should_offer_continuation(turn, False) is False
+
+
+def test_main_accepts_continuation_instruction(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_argv = ["terminalai", "first goal"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    class FakeAdapter:
+        name = "fake"
+
+    goals: list[str] = []
+
+    class FakeLoop:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def run(self, goal: str) -> list[SessionTurn]:
+            goals.append(goal)
+            if len(goals) == 1:
+                return [
+                    SessionTurn(
+                        input=goal,
+                        command="",
+                        output="",
+                        next_action_hint="done",
+                        turn_complete=True,
+                        overarching_goal_complete=True,
+                        continuation_prompt_added=True,
+                    )
+                ]
+            return [
+                SessionTurn(
+                    input=goal,
+                    command="echo second",
+                    output="ok",
+                    turn_complete=True,
+                )
+            ]
+
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(_fake_config)}),
+    )
+
+    answers = iter(["y", "second goal"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    assert cli.main() == 0
+    assert goals == ["first goal", "second goal"]

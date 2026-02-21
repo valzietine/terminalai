@@ -145,6 +145,14 @@ When the model marks the **overarching goal** complete, terminalai appends a con
 Would you like to keep going with new instructions while we retain this context?
 ```
 
+After showing that turn, the CLI now asks:
+
+```text
+Continue with new instructions? [y/N]:
+```
+
+If you answer `y`, you can provide a new instruction and the same process continues in the same in-memory session context.
+
 This prompt appears exactly once per completed top-level run, and does not appear for intermediate turns, tool-step boundaries, or subtask/milestone updates while a run is still active.
 
 This section documents the **current** output contract. If the CLI output format changes, update this section in the same change.

@@ -79,9 +79,10 @@ def test_agent_loop_executes_and_logs(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     assert shell.working_directories == ["/tmp/workspace"]
     assert turns[0].command == "echo hi"
+    assert turns[-1].overarching_goal_complete is True
     log_files = list(tmp_path.glob("session-*.log"))
     assert len(log_files) == 1
     lines = log_files[0].read_text(encoding="utf-8").strip().splitlines()
@@ -165,8 +166,9 @@ def test_agent_loop_resumes_when_feedback_is_collected(tmp_path) -> None:
     turns = loop.run("need input")
 
     assert prompts == ["Which environment should I target?"]
-    assert [turn.awaiting_user_feedback for turn in turns] == [True, False]
+    assert [turn.awaiting_user_feedback for turn in turns] == [True, False, False]
     assert turns[1].command == "echo resumed"
+    assert turns[2].overarching_goal_complete is True
     assert shell.commands == ["echo resumed"]
 
 
@@ -188,8 +190,9 @@ def test_agent_loop_confirms_completion_before_ending(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     assert prompts == ["done"]
+    assert turns[-1].overarching_goal_complete is True
 
 
 class FakeCompletionFeedbackClient:
@@ -379,7 +382,7 @@ def test_agent_loop_emits_blocked_command_context_event(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     blocked_events = [
         event for event in client.contexts[1] if event.get("type") == "command_blocked"
     ]
@@ -396,7 +399,7 @@ def test_agent_loop_emits_executed_command_context_event(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     executed_events = [
         event for event in client.contexts[1] if event.get("type") == "command_executed"
     ]
@@ -459,10 +462,10 @@ def test_agent_loop_appends_continuation_prompt_once_on_goal_completion(tmp_path
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
-    assert turns[0].overarching_goal_complete is True
-    assert turns[0].next_action_hint is not None
-    assert turns[0].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
+    assert len(turns) == 2
+    assert turns[-1].overarching_goal_complete is True
+    assert turns[-1].next_action_hint is not None
+    assert turns[-1].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
 
 
 def test_agent_loop_does_not_append_continuation_prompt_for_non_final_turns(tmp_path) -> None:
@@ -487,8 +490,8 @@ def test_continuation_prompt_not_repeated_when_final_message_retried(tmp_path) -
     turns = loop.run("list files")
     loop._append_continuation_prompt(turns)
 
-    assert turns[0].next_action_hint is not None
-    assert turns[0].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
+    assert turns[-1].next_action_hint is not None
+    assert turns[-1].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
 
 
 def test_agent_loop_can_disable_continuation_prompt(tmp_path) -> None:
@@ -529,7 +532,7 @@ def test_agent_loop_pauses_between_turns_when_auto_progress_disabled(tmp_path) -
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     assert prompts == [1, 2]
     turn_instruction_events = [
         event for event in client.contexts[0] if event.get("type") == "user_turn_instruction"
