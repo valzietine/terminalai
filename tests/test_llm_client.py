@@ -94,6 +94,8 @@ def test_payload_user_message_formats_goal_and_context() -> None:
     assert "find large files" in user_message
     assert "Session context (ordered oldest to newest):" in user_message
     assert '"type": "step_budget"' in user_message
+    assert "what is happening now" in user_message
+    assert "what just happened" in user_message
     assert "what I will do next" in user_message
 
 
