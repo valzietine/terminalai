@@ -87,6 +87,7 @@ def main() -> int:
         working_directory=working_directory,
         confirm_before_complete=config.confirm_before_complete,
         confirm_completion=_confirm_completion,
+        request_user_feedback=_request_user_feedback,
     )
 
     turns = loop.run(goal)
@@ -121,6 +122,12 @@ def _confirm_completion(model_notes: str | None) -> tuple[bool, str | None]:
         "What should happen next? (objective changes, debrief questions, etc.): "
     ).strip()
     return False, follow_up
+
+
+def _request_user_feedback(question: str) -> str:
+    print("model paused and needs user input")
+    print(f"question: {question}")
+    return input("Your response: ")
 
 
 if __name__ == "__main__":

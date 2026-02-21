@@ -26,6 +26,7 @@ class AgentLoop:
         working_directory: str | None = None,
         confirm_before_complete: bool = False,
         confirm_completion: Callable[[str | None], tuple[bool, str | None]] | None = None,
+        request_user_feedback: Callable[[str], str] | None = None,
     ) -> None:
         self.client = client
         self.shell = shell
@@ -34,12 +35,14 @@ class AgentLoop:
         self.working_directory = working_directory
         self.confirm_before_complete = confirm_before_complete
         self.confirm_completion = confirm_completion
+        self.request_user_feedback = request_user_feedback
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
+        extra_context: list[dict[str, object]] = []
 
         for _ in range(self.max_steps):
-            context = [asdict(turn) for turn in turns]
+            context = [asdict(turn) for turn in turns] + extra_context
             decision = self.client.next_command(goal=goal, session_context=context)
             if decision.ask_user and decision.user_question:
                 turn = SessionTurn(
@@ -51,7 +54,22 @@ class AgentLoop:
                 )
                 turns.append(turn)
                 self._append_log(turn)
-                break
+                if not self.request_user_feedback:
+                    break
+
+                feedback = self.request_user_feedback(decision.user_question).strip()
+                if not feedback:
+                    break
+
+                extra_context.append(
+                    {
+                        "type": "user_feedback",
+                        "goal": goal,
+                        "question": decision.user_question,
+                        "response": feedback,
+                    }
+                )
+                continue
             if decision.complete or not decision.command:
                 if self.confirm_before_complete and self.confirm_completion:
                     should_end, feedback = self.confirm_completion(decision.notes)
