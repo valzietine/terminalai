@@ -93,6 +93,21 @@ def test_payload_hides_user_feedback_pause_controls_when_disabled() -> None:
     assert len(payload["input"]) == 2
 
 
+def test_payload_user_message_formats_goal_and_context() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    payload = client._build_payload(
+        "find large files",
+        [{"type": "step_budget", "current_step": 1, "max_steps": 20}],
+    )
+
+    user_message = payload["input"][-1]["content"]
+    assert "User goal:" in user_message
+    assert "find large files" in user_message
+    assert "Session context (ordered oldest to newest):" in user_message
+    assert '"type": "step_budget"' in user_message
+
+
 def test_next_command_returns_safe_decision_on_http_error(monkeypatch) -> None:
     client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
 
