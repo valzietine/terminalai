@@ -1,3 +1,5 @@
+from urllib.error import HTTPError
+
 from terminalai.llm.client import LLMClient
 
 
@@ -89,3 +91,68 @@ def test_payload_hides_user_feedback_pause_controls_when_disabled() -> None:
     assert "ask_user" not in schema["properties"]
     assert "user_question" not in schema["properties"]
     assert len(payload["input"]) == 2
+
+
+def test_next_command_returns_safe_decision_on_http_error(monkeypatch) -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    def fake_urlopen(*_args, **_kwargs):
+        raise HTTPError(
+            url="https://example.com",
+            code=503,
+            msg="Service Unavailable",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setattr("terminalai.llm.client.request.urlopen", fake_urlopen)
+
+    decision = client.next_command("test", [])
+
+    assert decision.command is None
+    assert decision.complete is True
+    assert "HTTP 503" in (decision.notes or "")
+
+
+def test_next_command_returns_safe_decision_on_invalid_json_response(monkeypatch) -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def read(self):
+            return b"not-json"
+
+    monkeypatch.setattr("terminalai.llm.client.request.urlopen", lambda *_a, **_k: FakeResponse())
+
+    decision = client.next_command("test", [])
+
+    assert decision.command is None
+    assert decision.complete is True
+    assert "parsing error" in (decision.notes or "")
+
+
+def test_next_command_returns_safe_decision_when_missing_output_text(monkeypatch) -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def read(self):
+            return b'{"output":[{"content":[{"type":"reasoning","text":"ignored"}]}]}'
+
+    monkeypatch.setattr("terminalai.llm.client.request.urlopen", lambda *_a, **_k: FakeResponse())
+
+    decision = client.next_command("test", [])
+
+    assert decision.command is None
+    assert decision.complete is True
+    assert decision.notes == "No structured output returned"
