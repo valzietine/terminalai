@@ -7,7 +7,7 @@ This program enables an LLM from an API like OpenAI to interface with a user's t
 - Minimal orchestration loop that cycles model suggestion -> command execution -> model feedback.
 - Default CLI behavior is direct terminal orchestration.
 - Lightweight session logs are written to `logs/` (or `TERMINALAI_LOG_DIR`) with command/output/timestamps.
-- Command execution starts in the caller's current working directory at launch time unless `--cwd` is provided; the model does not choose the starting directory.
+- Command execution starts in the caller's current working directory at launch time unless `cwd` is configured; the model does not choose the starting directory.
 
 ## Safety posture
 
@@ -48,18 +48,14 @@ The MVP intentionally prioritizes direct execution and does not add command gati
    python start.py
    ```
 
-### Common CLI options
+### CLI input
 
-- `--shell {cmd,powershell}`: choose shell adapter (default: `powershell`)
-- `--model <name>`: override model from environment
-- `--max-steps <n>`: cap model-execution iterations (default: `20`)
-- `--cwd <path>`: set the starting working directory for command execution (must exist and be a directory)
-- `--allow-user-feedback-pause`: allow the model to pause execution and ask one important blocking question
+The CLI now accepts only the optional goal argument. Runtime options are configured via `terminalai.config.json` (or environment variable overrides).
 
 Example:
 
 ```bash
-terminalai --shell cmd --model gpt-5.2-codex --max-steps 10 "Create a TODO.txt with three tasks"
+terminalai "Create a TODO.txt with three tasks"
 ```
 
 ### Understanding runtime output in the terminal
@@ -107,6 +103,9 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_LOG_DIR`: directory for session logs (default: `logs`).
 - `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
 - `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
+- `TERMINALAI_SHELL`: shell adapter (`cmd` or `powershell`, default `powershell`).
+- `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
+- `TERMINALAI_CWD`: starting working directory for command execution.
 - `TERMINALAI_SAFETY_ENABLED`: parsed but currently not enforced in the MVP execution path.
 - `TERMINALAI_ALLOW_UNSAFE`: parsed but currently not enforced in the MVP execution path.
 
@@ -129,6 +128,9 @@ This section documents the **current** output contract. If the CLI output format
       "reasoning_effort": "medium"
     }
   },
+  "shell": "powershell",
+  "max_steps": 20,
+  "cwd": null,
   "log_dir": "logs",
   "system_prompt": "You are TerminalAI, an expert terminal orchestration assistant..."
 }

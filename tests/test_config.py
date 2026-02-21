@@ -113,3 +113,37 @@ def test_allow_user_feedback_pause_loads_from_file_and_env(tmp_path, monkeypatch
 
     env_config = AppConfig.from_env()
     assert env_config.allow_user_feedback_pause is False
+
+
+def test_runtime_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "default_model": "gpt-5.2",
+                "shell": "cmd",
+                "max_steps": 11,
+                "cwd": "./test-dir",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_SHELL", raising=False)
+    monkeypatch.delenv("TERMINALAI_MAX_STEPS", raising=False)
+    monkeypatch.delenv("TERMINALAI_CWD", raising=False)
+
+    file_config = AppConfig.from_env()
+    assert file_config.shell == "cmd"
+    assert file_config.max_steps == 11
+    assert file_config.working_directory == "./test-dir"
+
+    monkeypatch.setenv("TERMINALAI_SHELL", "powershell")
+    monkeypatch.setenv("TERMINALAI_MAX_STEPS", "7")
+    monkeypatch.setenv("TERMINALAI_CWD", "~/project")
+
+    env_config = AppConfig.from_env()
+    assert env_config.shell == "powershell"
+    assert env_config.max_steps == 7
+    assert env_config.working_directory == "~/project"
