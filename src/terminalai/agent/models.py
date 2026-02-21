@@ -32,3 +32,7 @@ class SessionTurn:
     output: str
     next_action_hint: str | None = None
     awaiting_user_feedback: bool = False
+    turn_complete: bool = False
+    subtask_complete: bool = False
+    overarching_goal_complete: bool = False
+    continuation_prompt_added: bool = False

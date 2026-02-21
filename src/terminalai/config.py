@@ -65,6 +65,7 @@ class AppConfig:
     system_prompt: str
     allow_user_feedback_pause: bool
     confirm_before_complete: bool
+    continuation_prompt_enabled: bool
     shell: str
     max_steps: int
     working_directory: str | None
@@ -133,6 +134,13 @@ class AppConfig:
                 default=_to_bool_from_object(
                     file_config.get("confirm_before_complete"),
                     default=False,
+                ),
+            ),
+            continuation_prompt_enabled=_to_bool(
+                os.getenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED"),
+                default=_to_bool_from_object(
+                    file_config.get("continuation_prompt_enabled"),
+                    default=True,
                 ),
             ),
             shell=_resolve_shell(
