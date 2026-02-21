@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from terminalai.agent.models import AgentStep, ExecutionResult, SessionTurn
@@ -86,11 +86,12 @@ class AgentLoop:
                 continue
             if decision.complete or not decision.command:
                 if self.confirm_before_complete and self.confirm_completion:
-                    should_end, feedback = self.confirm_completion(decision.notes)
+                    should_end, completion_feedback = self.confirm_completion(decision.notes)
                     if not should_end:
                         feedback_text = (
-                            feedback.strip()
-                            if isinstance(feedback, str) and feedback.strip()
+                            completion_feedback.strip()
+                            if isinstance(completion_feedback, str)
+                            and completion_feedback.strip()
                             else "User asked to continue instead of ending."
                         )
                         turn = SessionTurn(
@@ -220,7 +221,7 @@ class AgentLoop:
             {
                 "type": event_type,
                 "goal": goal,
-                "timestamp": timestamp or datetime.now(UTC).isoformat(),
+                "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
                 **fields,
             }
         )
@@ -252,9 +253,9 @@ class AgentLoop:
 
     def _append_log(self, turn: SessionTurn) -> None:
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        day_file = self.log_dir / f"session-{datetime.now(UTC).date().isoformat()}.log"
+        day_file = self.log_dir / f"session-{datetime.now(timezone.utc).date().isoformat()}.log"
         entry = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "command": turn.command,
             "output": turn.output,
             "next_action_hint": turn.next_action_hint,

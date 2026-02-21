@@ -137,14 +137,24 @@ class LLMClient:
 
     @staticmethod
     def _extract_output_json(payload: dict[str, object]) -> dict[str, object]:
-        for item in payload.get("output", []):
+        output_items = payload.get("output")
+        if not isinstance(output_items, list):
+            return {"command": None, "notes": "No structured output returned", "complete": True}
+
+        for item in output_items:
             if not isinstance(item, dict):
                 continue
-            for content in item.get("content", []):
+            content_items = item.get("content")
+            if not isinstance(content_items, list):
+                continue
+            for content in content_items:
                 if not isinstance(content, dict):
                     continue
                 if content.get("type") == "output_text" and content.get("text"):
-                    return json.loads(str(content["text"]))
+                    parsed = json.loads(str(content["text"]))
+                    if isinstance(parsed, dict):
+                        return {str(key): value for key, value in parsed.items()}
+                    break
         return {"command": None, "notes": "No structured output returned", "complete": True}
 
     @staticmethod

@@ -45,7 +45,9 @@ python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 files = ["src/terminalai/shell"]
+exclude = "^tests/"
 
 [[tool.mypy.overrides]]
 module = ["terminalai.shell.*"]
 strict = true
+
