@@ -7,6 +7,7 @@ import logging
 import os
 import platform
 from pathlib import Path
+from typing import cast
 
 from .agent.loop import AgentLoop
 from .config import AppConfig
@@ -14,6 +15,11 @@ from .llm.client import LLMClient
 from .shell import create_shell_adapter
 
 LOGGER = logging.getLogger(__name__)
+
+
+class CLIArgs(argparse.Namespace):
+    goal: str | None
+    working_directory: str | None
 
 
 def build_runtime_context(
@@ -57,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     parser = build_parser()
-    args = parser.parse_args()
+    args = cast(CLIArgs, parser.parse_args())
     config = AppConfig.from_env()
     adapter = create_shell_adapter(config.shell)
 
@@ -66,17 +72,16 @@ def main() -> int:
         print("No goal provided.")
         return 1
 
-    configured_working_directory = args.working_directory or config.working_directory
-    working_directory = (
-        str(Path(configured_working_directory).expanduser().resolve())
-        if configured_working_directory
-        else None
+    configured_working_directory = (
+        args.working_directory if args.working_directory is not None else config.working_directory
     )
-    if working_directory is not None:
-        candidate = Path(working_directory)
-        if not candidate.exists() or not candidate.is_dir():
+    working_directory: str | None = None
+    if configured_working_directory is not None:
+        resolved_working_directory = Path(configured_working_directory).expanduser().resolve()
+        if not resolved_working_directory.exists() or not resolved_working_directory.is_dir():
             print(f"Invalid configured cwd directory: {configured_working_directory}")
             return 1
+        working_directory = str(resolved_working_directory)
 
     client = LLMClient(
         api_key=config.api_key,
@@ -126,12 +131,12 @@ def main() -> int:
     return 0
 
 
-
 def _confirm_command_execution(command: str) -> bool:
     print("Destructive command proposed by model:")
     print(f"command: {command}")
     choice = input("Run this command and continue? [y/N]: ").strip().lower()
     return choice in {"y", "yes"}
+
 
 def _confirm_completion(model_notes: str | None) -> tuple[bool, str | None]:
     if model_notes:
