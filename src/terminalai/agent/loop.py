@@ -208,6 +208,7 @@ class AgentLoop:
                     next_action_hint=completion_hint,
                     turn_complete=True,
                     subtask_complete=decision.complete,
+                    overarching_goal_complete=decision.complete,
                     phase=decision.phase,
                     expected_outcome=decision.expected_outcome,
                     verification_command=decision.verification_command,
