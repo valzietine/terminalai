@@ -67,3 +67,41 @@ def test_allowlist_hook_rejects() -> None:
     assert result.executed is False
     assert result.blocked is True
     assert "allowlist" in result.stderr
+
+
+def test_powershell_adapter_command_formatting(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
+        assert args[0] == [
+            "pwsh",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Write-Output hi",
+        ]
+        return SimpleNamespace(returncode=0, stdout=b"hi", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = PowerShellAdapter(executable="pwsh").execute("Write-Output hi", confirmed=True)
+    assert result.returncode == 0
+
+
+def test_cmd_adapter_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=1, output=b"", stderr=b"too slow")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = CmdAdapter().execute("echo hello", timeout=1, confirmed=True)
+    assert result.timed_out is True
+    assert result.returncode == 124
+    assert result.stderr == "too slow"
+
+
+def test_cmd_adapter_nonzero_exit_handling(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(returncode=42, stdout=b"", stderr=b"bad command")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = CmdAdapter().execute("broken command", confirmed=True)
+    assert result.returncode == 42
+    assert result.stderr == "bad command"
+    assert result.timed_out is False
