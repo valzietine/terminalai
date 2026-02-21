@@ -25,16 +25,24 @@ The MVP intentionally prioritizes direct execution and does not add command gati
    export TERMINALAI_API_KEY="your_api_key"
    ```
 
-2. Run with a goal:
+2. Run with a goal (installed CLI):
 
    ```bash
    terminalai "List files in the current directory and summarize what is here"
    ```
 
-3. Or run without a goal to be prompted interactively:
+   Or run directly from source without installing the package:
+
+   ```bash
+   python start.py "List files in the current directory and summarize what is here"
+   ```
+
+3. Run without a goal to be prompted interactively:
 
    ```bash
    terminalai
+   # or
+   python start.py
    ```
 
 ### Common CLI options
