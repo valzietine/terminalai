@@ -29,6 +29,14 @@ def _fake_config() -> AppConfig:
 def test_parser_defaults() -> None:
     args = cli.build_parser().parse_args([])
     assert args.goal is None
+    assert args.working_directory is None
+
+
+def test_parser_accepts_cwd_override() -> None:
+    args = cli.build_parser().parse_args(["--cwd", "./sandbox", "list files"])
+
+    assert args.working_directory == "./sandbox"
+    assert args.goal == "list files"
 
 
 def test_main_rejects_invalid_cwd_from_config(
@@ -89,6 +97,44 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert cli.main() == 0
     assert captured["working_directory"] == str(tmp_path.resolve())
+
+
+def test_main_cwd_cli_override_takes_precedence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    override_dir = tmp_path / "override"
+    override_dir.mkdir()
+    fake_argv = ["terminalai", "--cwd", str(override_dir), "list files"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    class FakeAdapter:
+        name = "fake"
+
+    captured: dict[str, object] = {}
+
+    class FakeLoop:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def run(self, _goal: str) -> list[object]:
+            return []
+
+    def fake_config_with_cwd() -> AppConfig:
+        config = _fake_config()
+        config.working_directory = "./ignored-from-config"
+        return config
+
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(fake_config_with_cwd)}),
+    )
+
+    assert cli.main() == 0
+    assert captured["working_directory"] == str(override_dir.resolve())
 
 
 def test_build_runtime_context_contains_shell_and_directory() -> None:
