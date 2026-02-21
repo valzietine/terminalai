@@ -7,6 +7,29 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+DEFAULT_SYSTEM_PROMPT = " ".join(
+    [
+        "You are TerminalAI, an expert terminal orchestration assistant.",
+        (
+            "Analyze the user's goal and prior command results, then choose"
+            " the single best next shell command."
+        ),
+        "Prefer safe, reversible, and idempotent operations.",
+        (
+            "Avoid destructive commands unless they are explicitly requested"
+            " and clearly justified by the goal."
+        ),
+        (
+            "If the goal is complete, or no command should be run, set"
+            " command to null and complete to true."
+        ),
+        (
+            "Always return strict JSON with keys: command (string or null),"
+            " notes (string or null), complete (boolean)."
+        ),
+    ]
+)
+
 
 def _to_bool(value: str | None, default: bool = False) -> bool:
     """Convert common env var truthy/falsy values into booleans."""
@@ -31,6 +54,7 @@ class AppConfig:
     allow_unsafe: bool
     api_url: str
     log_dir: str
+    system_prompt: str
 
     @classmethod
     def from_env(cls) -> AppConfig:
@@ -74,6 +98,11 @@ class AppConfig:
                 os.getenv("TERMINALAI_LOG_DIR")
                 or _to_optional_string(file_config.get("log_dir"))
                 or "logs"
+            ),
+            system_prompt=(
+                os.getenv("TERMINALAI_SYSTEM_PROMPT")
+                or _to_optional_string(file_config.get("system_prompt"))
+                or DEFAULT_SYSTEM_PROMPT
             ),
         )
 

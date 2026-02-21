@@ -22,7 +22,12 @@ def test_extract_output_json() -> None:
 
 
 def test_payload_includes_reasoning_effort_when_configured() -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2-codex", reasoning_effort="medium")
+    client = LLMClient(
+        api_key=None,
+        model="gpt-5.2-codex",
+        system_prompt="custom prompt",
+        reasoning_effort="medium",
+    )
 
     payload = client._build_payload("test goal", [])
 
@@ -30,8 +35,16 @@ def test_payload_includes_reasoning_effort_when_configured() -> None:
 
 
 def test_payload_omits_reasoning_effort_when_unset() -> None:
-    client = LLMClient(api_key=None, model="gpt-4.1-mini")
+    client = LLMClient(api_key=None, model="gpt-4.1-mini", system_prompt="custom prompt")
 
     payload = client._build_payload("test goal", [])
 
     assert "reasoning" not in payload
+
+
+def test_payload_uses_custom_system_prompt() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    payload = client._build_payload("test goal", [])
+
+    assert payload["input"][0]["content"] == "be careful"
