@@ -15,8 +15,14 @@ The MVP intentionally prioritizes direct execution and does not add command gati
 
 ## Platforms
 
-- Operating system: Windows 10 (others may come later)
-- Shell adapters: Command Prompt and PowerShell
+- Operating system support:
+  - Windows 10/11: supported
+  - Linux (tested on modern POSIX environments): supported
+  - macOS: expected to work as a POSIX target, but not yet explicitly documented/tested in this MVP
+- Shell adapters:
+  - Windows: `powershell` (default), `cmd` (explicit opt-in)
+  - Linux/POSIX: `bash` (default)
+  - Optional cross-platform adapter alias: `pwsh` (PowerShell 7+, if installed)
 
 ## Usage
 
@@ -46,6 +52,15 @@ The MVP intentionally prioritizes direct execution and does not add command gati
    terminalai
    # or
    python start.py
+   ```
+
+4. Linux shell example (`bash`):
+
+   ```bash
+   export TERMINALAI_SHELL=bash
+   terminalai "Show disk usage for the current directory"
+   # or
+   TERMINALAI_SHELL=bash python start.py "Show disk usage for the current directory"
    ```
 
 ### CLI input
@@ -160,6 +175,12 @@ or platform defaults at runtime.
 ```
 
 When both config file and environment variables are present, environment variables take precedence.
+
+#### Linux distro notes
+
+- `bash` should be installed and available in `PATH` (it is present by default on most mainstream distributions).
+- `pwsh` is optional on Linux and only needed if you explicitly select `TERMINALAI_SHELL=pwsh`/`powershell`.
+- `cmd` is Windows-specific and is not expected to be available on Linux distributions.
 
 
 ## Development workflow
