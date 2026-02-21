@@ -66,7 +66,12 @@ class AgentLoop:
                     awaiting_user_feedback=True,
                 )
                 turns.append(turn)
-                self._append_log(turn)
+                self._append_log(
+                    turn,
+                    goal=goal,
+                    step_index=step_index + 1,
+                    complete_signal=decision.complete,
+                )
                 if not self.request_user_feedback:
                     exhausted_step_budget = False
                     break
@@ -101,7 +106,12 @@ class AgentLoop:
                             next_action_hint=f"User declined completion: {feedback_text}",
                         )
                         turns.append(turn)
-                        self._append_log(turn)
+                        self._append_log(
+                            turn,
+                            goal=goal,
+                            step_index=step_index + 1,
+                            complete_signal=decision.complete,
+                        )
                         continue
                 exhausted_step_budget = False
                 break
@@ -137,7 +147,14 @@ class AgentLoop:
                     ),
                 )
                 turns.append(turn)
-                self._append_log(turn)
+                self._append_log(
+                    turn,
+                    goal=goal,
+                    step_index=step_index + 1,
+                    returncode=130,
+                    duration=0.0,
+                    complete_signal=decision.complete,
+                )
                 continue
 
             command_result = self.shell.execute(
@@ -180,7 +197,14 @@ class AgentLoop:
                 next_action_hint=decision.notes,
             )
             turns.append(turn)
-            self._append_log(turn)
+            self._append_log(
+                turn,
+                goal=goal,
+                step_index=step_index + 1,
+                returncode=result.returncode,
+                duration=result.duration,
+                complete_signal=decision.complete,
+            )
 
         if exhausted_step_budget and self.max_steps > 0:
             self._append_context_event(
@@ -204,7 +228,12 @@ class AgentLoop:
                 ),
             )
             turns.append(turn)
-            self._append_log(turn)
+            self._append_log(
+                turn,
+                goal=goal,
+                step_index=self.max_steps,
+                complete_signal=False,
+            )
 
         return turns
 
@@ -251,14 +280,33 @@ class AgentLoop:
             f"stderr:\n{result.stderr}"
         )
 
-    def _append_log(self, turn: SessionTurn) -> None:
+    def _append_log(
+        self,
+        turn: SessionTurn,
+        *,
+        goal: str,
+        step_index: int,
+        returncode: int | None = None,
+        duration: float | None = None,
+        complete_signal: bool = False,
+    ) -> None:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         day_file = self.log_dir / f"session-{datetime.now(timezone.utc).date().isoformat()}.log"
         entry = {
+            "log_version": 2,
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "goal": goal,
+            "model": getattr(self.client, "model", None),
+            "shell": getattr(self.shell, "name", self.shell.__class__.__name__),
+            "working_directory": self.working_directory,
+            "step_index": step_index,
             "command": turn.command,
             "output": turn.output,
             "next_action_hint": turn.next_action_hint,
+            "returncode": returncode,
+            "duration": duration,
+            "awaiting_user_feedback": turn.awaiting_user_feedback,
+            "complete_signal": complete_signal,
         }
         with day_file.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
