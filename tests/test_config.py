@@ -74,3 +74,22 @@ def test_top_level_api_key_is_supported_in_config(tmp_path, monkeypatch) -> None
     config = AppConfig.from_env()
 
     assert config.api_key == "top-level-key"
+
+
+def test_system_prompt_supports_file_and_env_override(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"system_prompt": "prompt from file", "default_model": "gpt-5.2"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_SYSTEM_PROMPT", raising=False)
+
+    file_config = AppConfig.from_env()
+    assert file_config.system_prompt == "prompt from file"
+
+    monkeypatch.setenv("TERMINALAI_SYSTEM_PROMPT", "prompt from env")
+
+    env_config = AppConfig.from_env()
+    assert env_config.system_prompt == "prompt from env"

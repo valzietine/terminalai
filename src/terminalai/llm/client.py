@@ -24,12 +24,14 @@ class LLMClient:
         *,
         api_key: str | None,
         model: str,
+        system_prompt: str,
         reasoning_effort: str | None = None,
         api_url: str = "https://api.openai.com/v1/responses",
         timeout: float = 60.0,
     ) -> None:
         self.api_key = api_key
         self.model = model
+        self.system_prompt = system_prompt
         self.reasoning_effort = reasoning_effort
         self.api_url = api_url
         self.timeout = timeout
@@ -60,11 +62,7 @@ class LLMClient:
             "input": [
                 {
                     "role": "system",
-                    "content": (
-                        "You are a terminal orchestrator. "
-                        "Return JSON with keys: command (string or null), notes (optional string), "
-                        "complete (boolean)."
-                    ),
+                    "content": self.system_prompt,
                 },
                 {
                     "role": "user",

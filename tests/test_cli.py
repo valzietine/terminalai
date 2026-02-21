@@ -17,6 +17,7 @@ def _fake_config() -> AppConfig:
         allow_unsafe=False,
         api_url="https://api.openai.com/v1/responses",
         log_dir="logs",
+        system_prompt="prompt",
     )
 
 

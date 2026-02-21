@@ -70,6 +70,7 @@ terminalai --shell cmd --model gpt-5.2-codex --max-steps 10 "Create a TODO.txt w
 - `TERMINALAI_API_URL`: responses endpoint URL.
 - `TERMINALAI_CONFIG_FILE`: path to JSON config file (default: `terminalai.config.json`).
 - `TERMINALAI_LOG_DIR`: directory for session logs (default: `logs`).
+- `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
 - `TERMINALAI_SAFETY_ENABLED`: parsed but currently not enforced in the MVP execution path.
 - `TERMINALAI_ALLOW_UNSAFE`: parsed but currently not enforced in the MVP execution path.
 
@@ -92,7 +93,8 @@ terminalai --shell cmd --model gpt-5.2-codex --max-steps 10 "Create a TODO.txt w
       "reasoning_effort": "medium"
     }
   },
-  "log_dir": "logs"
+  "log_dir": "logs",
+  "system_prompt": "You are TerminalAI, an expert terminal orchestration assistant..."
 }
 ```
 
