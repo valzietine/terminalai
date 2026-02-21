@@ -100,6 +100,10 @@ def test_system_prompt_supports_file_and_env_override(tmp_path, monkeypatch) -> 
     assert env_config.system_prompt == "prompt from env"
 
 
+def test_default_system_prompt_describes_notes_as_next_action_hint() -> None:
+    assert "what I will do next" in config_module.DEFAULT_SYSTEM_PROMPT
+
+
 def test_allow_user_feedback_pause_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
     config_path.write_text(
