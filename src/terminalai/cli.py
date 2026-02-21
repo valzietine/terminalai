@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
+import platform
 from pathlib import Path
 
 from .agent.loop import AgentLoop
@@ -12,6 +14,23 @@ from .llm.client import LLMClient
 from .shell import create_shell_adapter
 
 LOGGER = logging.getLogger(__name__)
+
+
+def build_runtime_context(shell_name: str, working_directory: str | None) -> str:
+    """Build startup orientation context for the model."""
+    effective_cwd = working_directory or str(Path.cwd())
+    return "\n".join(
+        [
+            "Runtime environment context:",
+            f"- operating_system: {platform.system()} {platform.release()}",
+            f"- platform: {platform.platform()}",
+            f"- architecture: {platform.machine()}",
+            f"- os_name: {os.name}",
+            f"- shell: {shell_name}",
+            f"- starting_working_directory: {effective_cwd}",
+            "Use this context to orient command choices to this machine.",
+        ]
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -46,6 +65,7 @@ def main() -> int:
         api_key=config.api_key,
         model=config.model,
         system_prompt=config.system_prompt,
+        runtime_context=build_runtime_context(config.shell, working_directory),
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,
         allow_user_feedback_pause=config.allow_user_feedback_pause,

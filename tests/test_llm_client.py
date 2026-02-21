@@ -50,6 +50,19 @@ def test_payload_uses_custom_system_prompt() -> None:
     assert payload["input"][0]["content"] == "be careful"
 
 
+def test_payload_includes_runtime_context_when_provided() -> None:
+    client = LLMClient(
+        api_key=None,
+        model="gpt-5.2",
+        system_prompt="be careful",
+        runtime_context="Runtime environment context",
+    )
+
+    payload = client._build_payload("test goal", [])
+
+    assert payload["input"][1]["content"] == "Runtime environment context"
+
+
 def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
     client = LLMClient(
         api_key=None,

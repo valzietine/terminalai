@@ -88,3 +88,11 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert cli.main() == 0
     assert captured["working_directory"] == str(tmp_path.resolve())
+
+
+def test_build_runtime_context_contains_shell_and_directory() -> None:
+    context = cli.build_runtime_context("powershell", "/tmp/work")
+
+    assert "Runtime environment context:" in context
+    assert "shell: powershell" in context
+    assert "starting_working_directory: /tmp/work" in context
