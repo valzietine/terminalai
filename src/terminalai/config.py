@@ -57,8 +57,6 @@ class AppConfig:
     system_prompt: str
     allow_user_feedback_pause: bool
     confirm_before_complete: bool
-    completion_prompt_enabled: bool
-    completion_prompt_text: str
     shell: str
     max_steps: int
     working_directory: str | None
@@ -116,15 +114,6 @@ class AppConfig:
             confirm_before_complete=_to_bool(
                 os.getenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE"),
                 default=bool(file_config.get("confirm_before_complete", False)),
-            ),
-            completion_prompt_enabled=_to_bool(
-                os.getenv("TERMINALAI_COMPLETION_PROMPT_ENABLED"),
-                default=bool(file_config.get("completion_prompt_enabled", True)),
-            ),
-            completion_prompt_text=(
-                os.getenv("TERMINALAI_COMPLETION_PROMPT_TEXT")
-                or _to_optional_string(file_config.get("completion_prompt_text"))
-                or "Task finished. Do you want to keep going with new instructions?"
             ),
             shell=_resolve_shell(
                 os.getenv("TERMINALAI_SHELL")
