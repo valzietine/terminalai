@@ -116,7 +116,7 @@ class LLMClient:
         input_messages.append(
             {
                 "role": "user",
-                "content": json.dumps({"goal": goal, "context": session_context}),
+                "content": self._build_user_message(goal, session_context),
             }
         )
 
@@ -140,6 +140,18 @@ class LLMClient:
         if self.reasoning_effort:
             payload["reasoning"] = {"effort": self.reasoning_effort}
         return payload
+
+    @staticmethod
+    def _build_user_message(goal: str, session_context: list[dict[str, object]]) -> str:
+        """Build a clear prompt containing goal and serialized context."""
+        context_json = json.dumps(session_context, indent=2, ensure_ascii=False)
+        return (
+            "User goal:\n"
+            f"{goal}\n\n"
+            "Session context (ordered oldest to newest):\n"
+            f"{context_json}\n\n"
+            "Use both the goal and context to decide the next safest, most useful step."
+        )
 
     @staticmethod
     def _coerce_object_dict(value: object) -> dict[str, object] | None:
