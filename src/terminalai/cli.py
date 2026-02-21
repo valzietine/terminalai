@@ -111,21 +111,31 @@ def main() -> int:
         request_user_feedback=_request_user_feedback,
     )
 
-    turns = loop.run(goal)
-    if not turns:
-        print("Session ended without command execution.")
-        return 0
+    while True:
+        turns = loop.run(goal)
+        if not turns:
+            print("Session ended without command execution.")
+        else:
+            for idx, turn in enumerate(turns, start=1):
+                if turn.awaiting_user_feedback:
+                    print(f"[{idx}] model paused and needs user input")
+                    if turn.next_action_hint:
+                        print(f"question: {turn.next_action_hint}")
+                    continue
+                print(f"[{idx}] $ {turn.command}")
+                print(turn.output)
+                if turn.next_action_hint:
+                    print(f"hint: {turn.next_action_hint}")
 
-    for idx, turn in enumerate(turns, start=1):
-        if turn.awaiting_user_feedback:
-            print(f"[{idx}] model paused and needs user input")
-            if turn.next_action_hint:
-                print(f"question: {turn.next_action_hint}")
-            continue
-        print(f"[{idx}] $ {turn.command}")
-        print(turn.output)
-        if turn.next_action_hint:
-            print(f"hint: {turn.next_action_hint}")
+        if not config.completion_prompt_enabled:
+            break
+        if not _should_continue_after_completion(config.completion_prompt_text):
+            break
+
+        goal = input("New instruction: ").strip()
+        if not goal:
+            print("No goal provided.")
+            break
 
     LOGGER.debug("shell_adapter_selected", extra={"shell": adapter.name})
     return 0
@@ -156,6 +166,11 @@ def _request_user_feedback(question: str) -> str:
     print("model paused and needs user input")
     print(f"question: {question}")
     return input("Your response: ")
+
+
+def _should_continue_after_completion(prompt_text: str) -> bool:
+    choice = input(f"{prompt_text} [y/N]: ").strip().lower()
+    return choice in {"y", "yes"}
 
 
 if __name__ == "__main__":

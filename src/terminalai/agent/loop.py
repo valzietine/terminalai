@@ -47,6 +47,7 @@ class AgentLoop:
         self.confirm_command_execution = confirm_command_execution
         self.confirm_completion = confirm_completion
         self.request_user_feedback = request_user_feedback
+        self._session_history: list[SessionTurn] = []
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
@@ -57,7 +58,7 @@ class AgentLoop:
         for step_index in range(self.max_steps):
             step_context = self._step_budget_context(step_index)
             context = (
-                [self._serialize_turn(turn) for turn in turns]
+                [self._serialize_turn(turn) for turn in self._session_history + turns]
                 + [dict(event) for event in context_events]
                 + [step_context, safety_policy_context]
             )
@@ -240,6 +241,7 @@ class AgentLoop:
                 complete_signal=False,
             )
 
+        self._session_history.extend(turns)
         return turns
 
     @staticmethod
