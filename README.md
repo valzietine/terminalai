@@ -109,7 +109,7 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
 - `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
 - `TERMINALAI_CONFIRM_BEFORE_COMPLETE`: when true, asks the user to confirm before ending after the model marks the task complete. If the user declines, the CLI captures follow-up objectives/questions and continues the run with that feedback.
-- `TERMINALAI_SHELL`: shell adapter (`cmd` or `powershell`, default `powershell`).
+- `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
 - `TERMINALAI_SAFETY_ENABLED`: parsed but currently not enforced in the MVP execution path.
@@ -131,7 +131,9 @@ terminalai "your goal"
 
 Use `terminalai.config.local.json` for machine-specific values (for example,
 API keys and local shell/cwd preferences) while keeping
-`terminalai.config.json` as the shared project baseline.
+`terminalai.config.json` as the shared project baseline. In the shared baseline,
+`shell` can be set to `null` to defer shell selection to environment variables
+or platform defaults at runtime.
 
 ```json
 {
@@ -149,7 +151,7 @@ API keys and local shell/cwd preferences) while keeping
     }
   },
   "confirm_before_complete": false,
-  "shell": "powershell",
+  "shell": null,
   "max_steps": 20,
   "cwd": null,
   "log_dir": "logs",
