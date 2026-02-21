@@ -104,6 +104,7 @@ def main() -> int:
         max_steps=config.max_steps,
         working_directory=working_directory,
         confirm_before_complete=config.confirm_before_complete,
+        continuation_prompt_enabled=config.continuation_prompt_enabled,
         safety_enabled=config.safety_enabled,
         allow_unsafe=config.allow_unsafe,
         confirm_command_execution=_confirm_command_execution,

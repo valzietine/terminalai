@@ -17,6 +17,10 @@ ConfirmCommandExecution = Callable[[str], bool]
 ConfirmCompletion = Callable[[str | None], tuple[bool, str | None]]
 RequestUserFeedback = Callable[[str], str]
 
+CONTINUATION_PROMPT_TEXT = (
+    "Would you like to keep going with new instructions while we retain this context?"
+)
+
 
 class AgentLoop:
     """Runs the command-propose/execute/report cycle until completion."""
@@ -35,6 +39,7 @@ class AgentLoop:
         confirm_command_execution: ConfirmCommandExecution | None = None,
         confirm_completion: ConfirmCompletion | None = None,
         request_user_feedback: RequestUserFeedback | None = None,
+        continuation_prompt_enabled: bool = True,
     ) -> None:
         self.client = client
         self.shell = shell
@@ -47,6 +52,7 @@ class AgentLoop:
         self.confirm_command_execution = confirm_command_execution
         self.confirm_completion = confirm_completion
         self.request_user_feedback = request_user_feedback
+        self.continuation_prompt_enabled = continuation_prompt_enabled
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
@@ -54,6 +60,7 @@ class AgentLoop:
         safety_policy_context = self._safety_policy_context()
 
         exhausted_step_budget = True
+        overarching_goal_complete = False
         for step_index in range(self.max_steps):
             step_context = self._step_budget_context(step_index)
             context = (
@@ -69,6 +76,7 @@ class AgentLoop:
                     output="",
                     next_action_hint=decision.user_question,
                     awaiting_user_feedback=True,
+                    turn_complete=True,
                 )
                 turns.append(turn)
                 self._append_log(
@@ -109,6 +117,8 @@ class AgentLoop:
                             command="",
                             output="",
                             next_action_hint=f"User declined completion: {feedback_text}",
+                            turn_complete=True,
+                            subtask_complete=True,
                         )
                         turns.append(turn)
                         self._append_log(
@@ -119,6 +129,7 @@ class AgentLoop:
                         )
                         continue
                 exhausted_step_budget = False
+                overarching_goal_complete = bool(decision.complete)
                 break
 
             step = AgentStep(goal=goal, proposed_command=decision.command)
@@ -150,6 +161,7 @@ class AgentLoop:
                     next_action_hint=(
                         "User declined command execution; choose a safer alternative."
                     ),
+                    turn_complete=True,
                 )
                 turns.append(turn)
                 self._append_log(
@@ -200,6 +212,7 @@ class AgentLoop:
                 command=step.proposed_command,
                 output=output,
                 next_action_hint=decision.notes,
+                turn_complete=True,
             )
             turns.append(turn)
             self._append_log(
@@ -231,6 +244,7 @@ class AgentLoop:
                     "I reached the maximum number of steps and could not finish. "
                     "Please continue in a new run or raise max_steps."
                 ),
+                turn_complete=True,
             )
             turns.append(turn)
             self._append_log(
@@ -239,6 +253,15 @@ class AgentLoop:
                 step_index=self.max_steps,
                 complete_signal=False,
             )
+
+        if overarching_goal_complete:
+            self._append_context_event(
+                context_events,
+                event_type="goal_completion",
+                goal=goal,
+                overarching_goal_complete=True,
+            )
+            self._append_continuation_prompt(turns)
 
         return turns
 
@@ -250,6 +273,9 @@ class AgentLoop:
             "output": turn.output,
             "next_action_hint": turn.next_action_hint,
             "awaiting_user_feedback": turn.awaiting_user_feedback,
+            "turn_complete": turn.turn_complete,
+            "subtask_complete": turn.subtask_complete,
+            "overarching_goal_complete": turn.overarching_goal_complete,
         }
 
     @staticmethod
@@ -321,6 +347,10 @@ class AgentLoop:
             "returncode": returncode,
             "duration": duration,
             "awaiting_user_feedback": turn.awaiting_user_feedback,
+            "turn_complete": turn.turn_complete,
+            "subtask_complete": turn.subtask_complete,
+            "overarching_goal_complete": turn.overarching_goal_complete,
+            "continuation_prompt_added": turn.continuation_prompt_added,
             "complete_signal": complete_signal,
         }
         with day_file.open("a", encoding="utf-8") as handle:
@@ -358,6 +388,26 @@ class AgentLoop:
         if self.confirm_command_execution(command):
             return True, False
         return False, True
+
+    def _append_continuation_prompt(self, turns: list[SessionTurn]) -> None:
+        if not self.continuation_prompt_enabled:
+            return
+        if not turns:
+            return
+
+        final_turn = turns[-1]
+        if final_turn.continuation_prompt_added:
+            return
+
+        final_turn.overarching_goal_complete = True
+        existing_hint = final_turn.next_action_hint or ""
+        if CONTINUATION_PROMPT_TEXT not in existing_hint:
+            final_turn.next_action_hint = (
+                f"{existing_hint}\n\n{CONTINUATION_PROMPT_TEXT}"
+                if existing_hint
+                else CONTINUATION_PROMPT_TEXT
+            )
+        final_turn.continuation_prompt_added = True
 
     def _step_budget_context(self, step_index: int) -> dict[str, object]:
         current_step = step_index + 1

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from terminalai.agent.loop import AgentLoop
+from terminalai.agent.loop import CONTINUATION_PROMPT_TEXT, AgentLoop
 from terminalai.llm.client import ModelDecision
 
 
@@ -440,3 +440,57 @@ def test_agent_loop_notifies_when_step_budget_is_exhausted(tmp_path) -> None:
         "I reached the maximum number of steps and could not finish. "
         "Please continue in a new run or raise max_steps."
     )
+
+
+def test_agent_loop_appends_continuation_prompt_once_on_goal_completion(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=FakeClient(), shell=shell, log_dir=tmp_path, max_steps=3)
+
+    turns = loop.run("list files")
+
+    assert len(turns) == 1
+    assert turns[0].overarching_goal_complete is True
+    assert turns[0].next_action_hint is not None
+    assert turns[0].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
+
+
+def test_agent_loop_does_not_append_continuation_prompt_for_non_final_turns(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=NeverCompleteClient(), shell=shell, log_dir=tmp_path, max_steps=1)
+
+    turns = loop.run("keep working")
+
+    assert len(turns) == 2
+    assert all(not turn.overarching_goal_complete for turn in turns)
+    for turn in turns:
+        assert (
+            turn.next_action_hint is None
+            or CONTINUATION_PROMPT_TEXT not in turn.next_action_hint
+        )
+
+
+def test_continuation_prompt_not_repeated_when_final_message_retried(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=FakeClient(), shell=shell, log_dir=tmp_path, max_steps=3)
+
+    turns = loop.run("list files")
+    loop._append_continuation_prompt(turns)
+
+    assert turns[0].next_action_hint is not None
+    assert turns[0].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
+
+
+def test_agent_loop_can_disable_continuation_prompt(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(
+        client=FakeClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=3,
+        continuation_prompt_enabled=False,
+    )
+
+    turns = loop.run("list files")
+
+    assert turns[0].next_action_hint == "continue"
+    assert turns[0].overarching_goal_complete is False

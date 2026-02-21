@@ -21,6 +21,7 @@ def _fake_config() -> AppConfig:
         system_prompt="prompt",
         allow_user_feedback_pause=False,
         confirm_before_complete=False,
+        continuation_prompt_enabled=True,
         shell="powershell",
         max_steps=20,
         working_directory=None,
@@ -100,6 +101,7 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
     assert captured["working_directory"] == str(tmp_path.resolve())
     assert captured["safety_enabled"] is True
     assert captured["allow_unsafe"] is False
+    assert captured["continuation_prompt_enabled"] is True
 
 
 def test_main_cwd_cli_override_takes_precedence(

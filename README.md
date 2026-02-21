@@ -129,6 +129,14 @@ Your response: <you type here>
 After you answer, the same run continues automatically. The follow-up model turn receives both
 the original goal and your new response in `session_context`.
 
+When the model marks the **overarching goal** complete, terminalai appends a continuation question to the final assistant hint:
+
+```text
+Would you like to keep going with new instructions while we retain this context?
+```
+
+This prompt appears exactly once per completed top-level run, and does not appear for intermediate turns, tool-step boundaries, or subtask/milestone updates while a run is still active.
+
 This section documents the **current** output contract. If the CLI output format changes, update this section in the same change.
 
 ### Environment variables
@@ -143,6 +151,7 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
 - `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
 - `TERMINALAI_CONFIRM_BEFORE_COMPLETE`: when true, asks the user to confirm before ending after the model marks the task complete. If the user declines, the CLI captures follow-up objectives/questions and continues the run with that feedback.
+- `TERMINALAI_CONTINUATION_PROMPT_ENABLED`: enables/disables the post-completion continuation question appended after the overarching goal is complete (default: `true`).
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
@@ -185,6 +194,7 @@ or platform defaults at runtime.
     }
   },
   "confirm_before_complete": false,
+  "continuation_prompt_enabled": true,
   "safety_enabled": true,
   "allow_unsafe": false,
   "shell": null,
