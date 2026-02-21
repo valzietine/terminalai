@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from .agent.loop import AgentLoop
+from .agent.models import SessionTurn
 from .config import AppConfig, SafetyMode
 from .llm.client import LLMClient
 from .shell import create_shell_adapter
@@ -116,19 +117,13 @@ def main() -> int:
         return 0
 
     for idx, turn in enumerate(turns, start=1):
-        if turn.awaiting_user_feedback:
-            print(f"[{idx}] model paused and needs user input")
-            if turn.next_action_hint:
-                print(f"question: {turn.next_action_hint}")
+        if config.readable_cli_output:
+            print(_render_turn(turn, idx))
             continue
-        print(f"[{idx}] $ {turn.command}")
-        print(turn.output)
-        if turn.next_action_hint:
-            print(f"hint: {turn.next_action_hint}")
+        _print_turn_legacy(turn, idx)
 
     LOGGER.debug("shell_adapter_selected", extra={"shell": adapter.name})
     return 0
-
 
 
 def _request_turn_progress(step_number: int) -> tuple[bool, str | None]:
@@ -142,9 +137,10 @@ def _request_turn_progress(step_number: int) -> tuple[bool, str | None]:
     return True, response or None
 
 def _confirm_command_execution(command: str) -> bool:
-    print("Destructive command proposed by model:")
-    print(f"command: {command}")
-    choice = input("Run this command and continue? [y/N]: ").strip().lower()
+    print("\n=== DESTRUCTIVE COMMAND CONFIRMATION ===")
+    print(f"Command: {command}")
+    print("=======================================")
+    choice = input("Run this destructive command and continue? [y/N]: ").strip().lower()
     return choice in {"y", "yes"}
 
 
@@ -163,9 +159,56 @@ def _confirm_completion(model_notes: str | None) -> tuple[bool, str | None]:
 
 
 def _request_user_feedback(question: str) -> str:
-    print("model paused and needs user input")
-    print(f"question: {question}")
+    print("\n=== MODEL PAUSED: INPUT REQUIRED ===")
+    print(f"Question: {question}")
     return input("Your response: ")
+
+
+def _render_status(*, awaiting_user_feedback: bool, turn_complete: bool) -> str:
+    if awaiting_user_feedback:
+        return "needs input"
+    if turn_complete:
+        return "completed"
+    return "running"
+
+
+def _render_turn(turn: SessionTurn, idx: int) -> str:
+    status = _render_status(
+        awaiting_user_feedback=turn.awaiting_user_feedback,
+        turn_complete=turn.turn_complete,
+    )
+    lines = [f"=== Turn {idx} ({status}) ==="]
+
+    if turn.command:
+        lines.append("[command]")
+        lines.append(turn.command)
+
+    output = turn.output.rstrip()
+    if output:
+        lines.append("[output]")
+        lines.append(output)
+
+    if turn.awaiting_user_feedback:
+        lines.append("[question]")
+        lines.append(turn.next_action_hint or "(no question provided)")
+    elif turn.next_action_hint:
+        lines.append("[hint]")
+        lines.append(turn.next_action_hint)
+
+    return "\n".join(lines)
+
+
+def _print_turn_legacy(turn: SessionTurn, idx: int) -> None:
+    if turn.awaiting_user_feedback:
+        print(f"[{idx}] model paused and needs user input")
+        if turn.next_action_hint:
+            print(f"question: {turn.next_action_hint}")
+        return
+
+    print(f"[{idx}] $ {turn.command}")
+    print(turn.output)
+    if turn.next_action_hint:
+        print(f"hint: {turn.next_action_hint}")
 
 
 if __name__ == "__main__":

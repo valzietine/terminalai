@@ -33,6 +33,7 @@ def test_app_config_loads_openai_and_model_reasoning_from_file(tmp_path, monkeyp
     assert config.confirm_before_complete is False
     assert config.continuation_prompt_enabled is True
     assert config.auto_progress_turns is True
+    assert config.readable_cli_output is True
 
 
 def test_env_overrides_reasoning_effort(tmp_path, monkeypatch) -> None:
@@ -191,6 +192,7 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
                 "confirm_before_complete": "false",
                 "continuation_prompt_enabled": "false",
                 "auto_progress_turns": "false",
+                "readable_cli_output": "false",
             }
         ),
         encoding="utf-8",
@@ -202,6 +204,7 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
     monkeypatch.delenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE", raising=False)
     monkeypatch.delenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED", raising=False)
     monkeypatch.delenv("TERMINALAI_AUTO_PROGRESS_TURNS", raising=False)
+    monkeypatch.delenv("TERMINALAI_READABLE_CLI_OUTPUT", raising=False)
 
     config = AppConfig.from_env()
 
@@ -210,6 +213,7 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
     assert config.confirm_before_complete is False
     assert config.continuation_prompt_enabled is False
     assert config.auto_progress_turns is False
+    assert config.readable_cli_output is False
 
 
 def test_continuation_prompt_setting_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
@@ -222,6 +226,7 @@ def test_continuation_prompt_setting_loads_from_file_and_env(tmp_path, monkeypat
     monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
     monkeypatch.delenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED", raising=False)
     monkeypatch.delenv("TERMINALAI_AUTO_PROGRESS_TURNS", raising=False)
+    monkeypatch.delenv("TERMINALAI_READABLE_CLI_OUTPUT", raising=False)
 
     file_config = AppConfig.from_env()
     assert file_config.continuation_prompt_enabled is False
@@ -242,6 +247,7 @@ def test_auto_progress_turns_loads_from_file_and_env(tmp_path, monkeypatch) -> N
 
     monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
     monkeypatch.delenv("TERMINALAI_AUTO_PROGRESS_TURNS", raising=False)
+    monkeypatch.delenv("TERMINALAI_READABLE_CLI_OUTPUT", raising=False)
 
     file_config = AppConfig.from_env()
     assert file_config.auto_progress_turns is False
@@ -337,6 +343,25 @@ def test_explicit_config_file_disables_local_auto_merge(tmp_path, monkeypatch) -
     config = AppConfig.from_env()
 
     assert config.max_steps == 3
+
+
+def test_readable_cli_output_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"readable_cli_output": False, "default_model": "gpt-5.2"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_READABLE_CLI_OUTPUT", raising=False)
+
+    file_config = AppConfig.from_env()
+    assert file_config.readable_cli_output is False
+
+    monkeypatch.setenv("TERMINALAI_READABLE_CLI_OUTPUT", "true")
+
+    env_config = AppConfig.from_env()
+    assert env_config.readable_cli_output is True
 
 
 def test_shell_value_normalizes_bash_aliases() -> None:
