@@ -96,6 +96,16 @@ class PowerShellAdapter(ShellAdapter):
                 timed_out=True,
                 duration_seconds=self.monotonic_now() - started,
             )
+        except FileNotFoundError:
+            result = CommandResult(
+                command=command,
+                shell=self.name,
+                returncode=127,
+                stdout="",
+                stderr=f"{self.name} executable not found: {self.executable}",
+                executed=False,
+                duration_seconds=self.monotonic_now() - started,
+            )
 
         self.log_result(result)
         return result

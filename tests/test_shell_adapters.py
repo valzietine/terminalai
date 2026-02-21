@@ -107,6 +107,26 @@ def test_cmd_adapter_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.stderr == "too slow"
 
 
+def test_cmd_adapter_missing_executable() -> None:
+    missing_executable = "C:/missing/cmd.exe"
+    result = CmdAdapter(executable=missing_executable).execute("echo hello", confirmed=True)
+
+    assert result.executed is False
+    assert result.returncode == 127
+    assert result.stderr == f"cmd executable not found: {missing_executable}"
+
+
+def test_powershell_adapter_missing_executable() -> None:
+    missing_executable = "C:/missing/pwsh.exe"
+    result = PowerShellAdapter(executable=missing_executable).execute(
+        "Write-Output hi", confirmed=True
+    )
+
+    assert result.executed is False
+    assert result.returncode == 127
+    assert result.stderr == f"powershell executable not found: {missing_executable}"
+
+
 def test_cmd_adapter_nonzero_exit_handling(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(returncode=42, stdout=b"", stderr=b"bad command")
