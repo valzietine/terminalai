@@ -208,7 +208,7 @@ class LLMClient:
 
     @staticmethod
     def _safe_failure_decision(notes: str) -> ModelDecision:
-        return ModelDecision(command=None, notes=notes, complete=True)
+        return ModelDecision(command=None, notes=notes, complete=False)
 
     @staticmethod
     def _to_model_decision(parsed: dict[str, object]) -> ModelDecision:
