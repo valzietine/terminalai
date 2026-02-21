@@ -86,7 +86,17 @@ def test_agent_loop_executes_and_logs(tmp_path) -> None:
     assert len(log_files) == 1
     lines = log_files[0].read_text(encoding="utf-8").strip().splitlines()
     payload = json.loads(lines[0])
+    assert payload["log_version"] == 2
+    assert payload["goal"] == "list files"
+    assert payload["model"] is None
+    assert payload["shell"] == "fake"
+    assert payload["working_directory"] == "/tmp/workspace"
+    assert payload["step_index"] == 1
     assert payload["command"] == "echo hi"
+    assert payload["returncode"] == 0
+    assert payload["duration"] == 0.1
+    assert payload["awaiting_user_feedback"] is False
+    assert payload["complete_signal"] is False
 
 
 class FakeQuestionClient:
@@ -127,6 +137,13 @@ def test_agent_loop_can_pause_for_user_feedback(tmp_path) -> None:
     assert len(turns) == 1
     assert turns[0].awaiting_user_feedback is True
     assert turns[0].next_action_hint == "Which environment should I target?"
+
+    log_files = list(tmp_path.glob("session-*.log"))
+    payload = json.loads(log_files[0].read_text(encoding="utf-8").strip())
+    assert payload["awaiting_user_feedback"] is True
+    assert payload["returncode"] is None
+    assert payload["duration"] is None
+    assert payload["complete_signal"] is False
 
 
 def test_agent_loop_resumes_when_feedback_is_collected(tmp_path) -> None:
@@ -211,6 +228,16 @@ def test_agent_loop_resumes_after_user_declines_completion(tmp_path) -> None:
     assert turns[1].command == "echo follow-up"
     assert "Step budget exhausted" in turns[2].output
     assert shell.commands == ["echo follow-up"]
+
+    log_files = list(tmp_path.glob("session-*.log"))
+    payloads = [
+        json.loads(line)
+        for line in log_files[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert payloads[0]["complete_signal"] is True
+    assert payloads[1]["complete_signal"] is False
+    assert payloads[2]["step_index"] == 2
 
 
 class DestructiveCommandClient:

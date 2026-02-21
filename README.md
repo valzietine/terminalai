@@ -6,7 +6,7 @@ This program enables an LLM from an API like OpenAI to interface with a user's t
 
 - Minimal orchestration loop that cycles model suggestion -> command execution -> model feedback.
 - Default CLI behavior is direct terminal orchestration.
-- Lightweight session logs are written to `logs/` (or `TERMINALAI_LOG_DIR`) with command/output/timestamps.
+- Lightweight session logs are written to `logs/` (or `TERMINALAI_LOG_DIR`) as JSONL entries with versioned command/output metadata for auditing and debugging.
 - Command execution starts in the caller's current working directory at launch time unless `cwd` is configured; the model does not choose the starting directory.
 
 ## Safety posture
@@ -114,6 +114,7 @@ Notes:
 - `stdout` and `stderr` are always printed, even when empty.
 - A run can include multiple blocks (`[1]`, `[2]`, `[3]`, ...), one per command.
 - The same `output` text and `hint` are also appended to JSONL session logs in `logs/session-YYYY-MM-DD.log` (or `TERMINALAI_LOG_DIR`).
+- Each log line is schema-versioned with `log_version` and includes: `timestamp`, `goal`, `model`, `shell`, `working_directory`, `step_index`, `command`, `output`, `next_action_hint`, `returncode`, `duration`, `awaiting_user_feedback`, and `complete_signal`.
 
 When `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE=true`, the model can pause and ask one critical
 question if it cannot proceed safely. In that case, the CLI prompts:
