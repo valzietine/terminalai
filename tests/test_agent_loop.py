@@ -810,3 +810,20 @@ def test_agent_loop_emits_verification_event_with_classification(
     assert verification_events[0]["status"] == status
     assert verification_events[0]["signal"] == signal
     assert verification_events[0]["returncode"] == result.returncode
+
+def test_agent_loop_emits_turns_as_they_are_produced(tmp_path) -> None:
+    shell = FakeShell()
+    emitted: list[str] = []
+
+    loop = AgentLoop(
+        client=FakeClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=3,
+        emit_turn=lambda turn: emitted.append(turn.command),
+    )
+
+    turns = loop.run("list files")
+
+    assert [turn.command for turn in turns] == emitted
+    assert emitted == ["echo hi", ""]

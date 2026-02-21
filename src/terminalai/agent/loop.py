@@ -19,6 +19,7 @@ ContextEvent = dict[str, ContextEventField]
 ConfirmCommandExecution = Callable[[str], bool]
 RequestUserFeedback = Callable[[str], str]
 RequestTurnProgress = Callable[[int], tuple[bool, str | None]]
+EmitTurn = Callable[[SessionTurn], None]
 
 CONTINUATION_PROMPT_TEXT = (
     "Would you like to keep going with new instructions while we retain this context?"
@@ -42,6 +43,7 @@ class AgentLoop:
         continuation_prompt_enabled: bool = True,
         auto_progress_turns: bool = True,
         request_turn_progress: RequestTurnProgress | None = None,
+        emit_turn: EmitTurn | None = None,
     ) -> None:
         self.client = client
         self.shell = shell
@@ -54,6 +56,7 @@ class AgentLoop:
         self.continuation_prompt_enabled = continuation_prompt_enabled
         self.auto_progress_turns = auto_progress_turns
         self.request_turn_progress = request_turn_progress
+        self.emit_turn = emit_turn
 
     def run(self, goal: str, prior_turns: list[SessionTurn] | None = None) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
@@ -101,6 +104,7 @@ class AgentLoop:
                     risk_level=decision.risk_level,
                 )
                 turns.append(turn)
+                self._emit_turn(turn)
                 self._append_log(
                     turn,
                     goal=goal,
@@ -149,6 +153,7 @@ class AgentLoop:
                         risk_level=decision.risk_level,
                     )
                     turns.append(turn)
+                    self._emit_turn(turn)
                     self._append_log(
                         turn,
                         goal=goal,
@@ -182,6 +187,7 @@ class AgentLoop:
                     risk_level=decision.risk_level,
                 )
                 turns.append(completion_turn)
+                self._emit_turn(completion_turn)
                 final_completion_log = (completion_turn, step_index + 1, decision.complete)
                 exhausted_step_budget = False
                 overarching_goal_complete = bool(decision.complete)
@@ -229,6 +235,7 @@ class AgentLoop:
                     risk_level=step.risk_level,
                 )
                 turns.append(turn)
+                self._emit_turn(turn)
                 self._append_log(
                     turn,
                     goal=goal,
@@ -307,6 +314,7 @@ class AgentLoop:
                 risk_level=step.risk_level,
             )
             turns.append(turn)
+            self._emit_turn(turn)
             self._append_log(
                 turn,
                 goal=goal,
@@ -339,6 +347,7 @@ class AgentLoop:
                 turn_complete=True,
             )
             turns.append(turn)
+            self._emit_turn(turn)
             self._append_log(
                 turn,
                 goal=goal,
@@ -586,3 +595,7 @@ class AgentLoop:
                 " commands."
             ),
         }
+
+    def _emit_turn(self, turn: SessionTurn) -> None:
+        if self.emit_turn:
+            self.emit_turn(turn)
