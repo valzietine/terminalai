@@ -1,0 +1,19 @@
+{
+  "openai": {
+    "api_url": "https://api.openai.com/v1/responses",
+    "api_key": "YOUR_OPENAI_API_KEY"
+  },
+  "default_model": "gpt-5.2",
+  "models": {
+    "gpt-5.2": {
+      "reasoning_effort": "medium"
+    },
+    "gpt-5.2-codex": {
+      "reasoning_effort": "medium"
+    },
+    "gpt-4.1-mini": {
+      "reasoning_effort": null
+    }
+  },
+  "log_dir": "logs"
+}
