@@ -28,12 +28,21 @@ DEFAULT_SYSTEM_PROMPT = " ".join(
         ),
         (
             "Always return strict JSON with keys: command (string or null),"
-            " notes (string or null), complete (boolean)."
+            " notes (string or null), complete (boolean), phase"
+            " (analysis|mutation|verification|completion), expected_outcome"
+            " (string or null), verification_command (string or null), and"
+            " risk_level (low|medium|high or null)."
         ),
         (
             "Use notes as a concise hint that explains what is happening now,"
             " what just happened, and what I will do next, unless the goal is"
             " complete."
+        ),
+        (
+            "When user feedback pause is enabled, include ask_user"
+            " (boolean) and user_question (string or null): set ask_user=true"
+            " only for one critical missing fact that blocks safe progress,"
+            " set command to null, and keep complete=false."
         ),
     ]
 )
