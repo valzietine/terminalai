@@ -13,6 +13,8 @@ class FakeResult:
     stderr: str
     returncode: int
     duration_seconds: float = 0.1
+    blocked: bool = False
+    block_reason: str | None = None
 
 
 class FakeShell:
@@ -48,12 +50,14 @@ class FakeShell:
 class FakeClient:
     def __init__(self) -> None:
         self.calls = 0
+        self.contexts: list[list[dict[str, object]]] = []
 
     def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
         self.calls += 1
+        self.contexts.append(session_context)
         if self.calls == 1:
             assert goal == "list files"
-            assert session_context[0]["type"] == "safety_policy"
+            assert session_context[-1]["type"] == "safety_policy"
             return ModelDecision(command="echo hi", notes="continue", complete=False)
         return ModelDecision(command=None, notes="done", complete=True)
 
@@ -88,7 +92,7 @@ class FakeQuestionClient:
         self.calls += 1
         assert goal == "need input"
         if self.calls == 1:
-            assert session_context[0]["type"] == "safety_policy"
+            assert session_context[-1]["type"] == "safety_policy"
             return ModelDecision(
                 command=None,
                 notes=None,
@@ -97,12 +101,12 @@ class FakeQuestionClient:
                 user_question="Which environment should I target?",
             )
 
-        assert session_context[-1] == {
-            "type": "user_feedback",
-            "goal": "need input",
-            "question": "Which environment should I target?",
-            "response": "Use staging",
-        }
+        user_feedback_events = [
+            event for event in session_context if event.get("type") == "user_feedback"
+        ]
+        assert user_feedback_events[-1]["goal"] == "need input"
+        assert user_feedback_events[-1]["question"] == "Which environment should I target?"
+        assert user_feedback_events[-1]["response"] == "Use staging"
         if self.calls == 2:
             return ModelDecision(command="echo resumed", notes="continue", complete=False)
         return ModelDecision(command=None, notes="done", complete=True)
@@ -204,14 +208,24 @@ def test_agent_loop_resumes_after_user_declines_completion(tmp_path) -> None:
 
 
 class DestructiveCommandClient:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.contexts: list[list[dict[str, object]]] = []
+
     def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
+        self.contexts.append(session_context)
         assert goal == "delete temp files"
-        assert session_context[0]["type"] == "safety_policy"
-        return ModelDecision(command="rm -rf ./tmp", notes="cleanup", complete=False)
+        if self.calls == 1:
+            assert session_context[-1]["type"] == "safety_policy"
+            return ModelDecision(command="rm -rf ./tmp", notes="cleanup", complete=False)
+
+        return ModelDecision(command=None, notes="done", complete=True)
 
 
 def test_agent_loop_prompts_and_skips_destructive_command_when_user_declines(tmp_path) -> None:
     shell = FakeShell()
+    client = DestructiveCommandClient()
     prompts: list[str] = []
 
     def confirm_command_execution(command: str) -> bool:
@@ -219,10 +233,10 @@ def test_agent_loop_prompts_and_skips_destructive_command_when_user_declines(tmp
         return False
 
     loop = AgentLoop(
-        client=DestructiveCommandClient(),
+        client=client,
         shell=shell,
         log_dir=tmp_path,
-        max_steps=1,
+        max_steps=2,
         safety_enabled=True,
         allow_unsafe=False,
         confirm_command_execution=confirm_command_execution,
@@ -233,6 +247,14 @@ def test_agent_loop_prompts_and_skips_destructive_command_when_user_declines(tmp
     assert prompts == ["rm -rf ./tmp"]
     assert shell.commands == []
     assert "User declined destructive command execution" in turns[0].output
+    command_declined_events = [
+        event for event in client.contexts[1] if event.get("type") == "command_declined"
+    ]
+    assert len(command_declined_events) == 1
+    assert command_declined_events[0]["command"] == "rm -rf ./tmp"
+    assert command_declined_events[0]["reason"] == "user_declined"
+    assert command_declined_events[0]["safety_enabled"] is True
+    assert command_declined_events[0]["allow_unsafe"] is False
 
 
 def test_agent_loop_confirms_and_runs_destructive_command_when_user_accepts(tmp_path) -> None:
@@ -269,3 +291,72 @@ def test_agent_loop_allows_destructive_commands_when_allow_unsafe_enabled(tmp_pa
 
     assert shell.confirmed_calls == [True]
     assert "returncode=0" in turns[0].output
+
+
+class GuardrailBlockedClient:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.contexts: list[list[dict[str, object]]] = []
+
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
+        self.contexts.append(session_context)
+        if self.calls == 1:
+            return ModelDecision(command="echo restricted", notes="try", complete=False)
+        return ModelDecision(command=None, notes="done", complete=True)
+
+
+class GuardrailBlockedShell(FakeShell):
+    def execute(
+        self,
+        command: str,
+        *,
+        cwd: str | None = None,
+        confirmed: bool = False,
+    ) -> FakeResult:
+        self.commands.append(command)
+        self.working_directories.append(cwd)
+        self.confirmed_calls.append(confirmed)
+        return FakeResult(
+            stdout="",
+            stderr="command blocked by denylist policy",
+            returncode=126,
+            blocked=True,
+            block_reason="command blocked by denylist policy",
+        )
+
+
+def test_agent_loop_emits_blocked_command_context_event(tmp_path) -> None:
+    shell = GuardrailBlockedShell()
+    client = GuardrailBlockedClient()
+    loop = AgentLoop(client=client, shell=shell, log_dir=tmp_path, max_steps=2)
+
+    turns = loop.run("list files")
+
+    assert len(turns) == 1
+    blocked_events = [
+        event for event in client.contexts[1] if event.get("type") == "command_blocked"
+    ]
+    assert len(blocked_events) == 1
+    assert blocked_events[0]["command"] == "echo restricted"
+    assert blocked_events[0]["reason"] == "denylist"
+    assert blocked_events[0]["safety_enabled"] is True
+    assert blocked_events[0]["allow_unsafe"] is False
+
+
+def test_agent_loop_emits_executed_command_context_event(tmp_path) -> None:
+    shell = FakeShell()
+    client = FakeClient()
+    loop = AgentLoop(client=client, shell=shell, log_dir=tmp_path, max_steps=2)
+
+    turns = loop.run("list files")
+
+    assert len(turns) == 1
+    executed_events = [
+        event for event in client.contexts[1] if event.get("type") == "command_executed"
+    ]
+    assert len(executed_events) == 1
+    assert executed_events[0]["command"] == "echo hi"
+    assert executed_events[0]["returncode"] == 0
+    assert executed_events[0]["safety_enabled"] is True
+    assert executed_events[0]["allow_unsafe"] is False

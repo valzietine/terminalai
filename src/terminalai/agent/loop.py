@@ -45,10 +45,11 @@ class AgentLoop:
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
-        extra_context: list[dict[str, object]] = [self._safety_policy_context()]
+        context_events: list[dict[str, object]] = []
+        safety_policy_context = self._safety_policy_context()
 
         for _ in range(self.max_steps):
-            context = [asdict(turn) for turn in turns] + extra_context
+            context = [asdict(turn) for turn in turns] + context_events + [safety_policy_context]
             decision = self.client.next_command(goal=goal, session_context=context)
             if decision.ask_user and decision.user_question:
                 turn = SessionTurn(
@@ -67,13 +68,12 @@ class AgentLoop:
                 if not feedback:
                     break
 
-                extra_context.append(
-                    {
-                        "type": "user_feedback",
-                        "goal": goal,
-                        "question": decision.user_question,
-                        "response": feedback,
-                    }
+                self._append_context_event(
+                    context_events,
+                    event_type="user_feedback",
+                    goal=goal,
+                    question=decision.user_question,
+                    response=feedback,
                 )
                 continue
             if decision.complete or not decision.command:
@@ -103,6 +103,15 @@ class AgentLoop:
                 destructive=destructive,
             )
             if declined:
+                self._append_context_event(
+                    context_events,
+                    event_type="command_declined",
+                    goal=goal,
+                    command=step.proposed_command,
+                    reason="user_declined",
+                    safety_enabled=self.safety_enabled,
+                    allow_unsafe=self.allow_unsafe,
+                )
                 turn = SessionTurn(
                     input=goal,
                     command=step.proposed_command,
@@ -126,6 +135,27 @@ class AgentLoop:
                 cwd=self.working_directory,
                 confirmed=confirmed,
             )
+            if command_result.blocked:
+                self._append_context_event(
+                    context_events,
+                    event_type="command_blocked",
+                    goal=goal,
+                    command=step.proposed_command,
+                    reason=self._normalize_block_reason(command_result),
+                    safety_enabled=self.safety_enabled,
+                    allow_unsafe=self.allow_unsafe,
+                    returncode=command_result.returncode,
+                )
+            else:
+                self._append_context_event(
+                    context_events,
+                    event_type="command_executed",
+                    goal=goal,
+                    command=step.proposed_command,
+                    safety_enabled=self.safety_enabled,
+                    allow_unsafe=self.allow_unsafe,
+                    returncode=command_result.returncode,
+                )
             result = ExecutionResult(
                 stdout=command_result.stdout,
                 stderr=command_result.stderr,
@@ -143,6 +173,40 @@ class AgentLoop:
             self._append_log(turn)
 
         return turns
+
+    @staticmethod
+    def _append_context_event(
+        context_events: list[dict[str, object]],
+        *,
+        event_type: str,
+        goal: str,
+        timestamp: str | None = None,
+        **fields: object,
+    ) -> None:
+        context_events.append(
+            {
+                "type": event_type,
+                "goal": goal,
+                "timestamp": timestamp or datetime.now(UTC).isoformat(),
+                **fields,
+            }
+        )
+
+    @staticmethod
+    def _normalize_block_reason(command_result: object) -> str:
+        reason_source = ""
+        if isinstance(getattr(command_result, "block_reason", None), str):
+            reason_source = str(getattr(command_result, "block_reason")).strip().lower()
+        if not reason_source and isinstance(getattr(command_result, "stderr", None), str):
+            reason_source = str(getattr(command_result, "stderr")).strip().lower()
+
+        if "denylist" in reason_source:
+            return "denylist"
+        if "allowlist" in reason_source:
+            return "allowlist"
+        if "confirmation" in reason_source or "requires explicit confirmation" in reason_source:
+            return "requires_confirmation"
+        return "unknown"
 
     @staticmethod
     def _format_result(result: ExecutionResult) -> str:
