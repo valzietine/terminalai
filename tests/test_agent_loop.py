@@ -70,21 +70,36 @@ def test_agent_loop_executes_and_logs(tmp_path) -> None:
 
 
 class FakeQuestionClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
     def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
         assert goal == "need input"
-        assert session_context == []
-        return ModelDecision(
-            command=None,
-            notes=None,
-            complete=False,
-            ask_user=True,
-            user_question="Which environment should I target?",
-        )
+        if self.calls == 1:
+            assert session_context == []
+            return ModelDecision(
+                command=None,
+                notes=None,
+                complete=False,
+                ask_user=True,
+                user_question="Which environment should I target?",
+            )
+
+        assert session_context[-1] == {
+            "type": "user_feedback",
+            "goal": "need input",
+            "question": "Which environment should I target?",
+            "response": "Use staging",
+        }
+        if self.calls == 2:
+            return ModelDecision(command="echo resumed", notes="continue", complete=False)
+        return ModelDecision(command=None, notes="done", complete=True)
 
 
 def test_agent_loop_can_pause_for_user_feedback(tmp_path) -> None:
     shell = FakeShell()
-    loop = AgentLoop(client=FakeQuestionClient(), shell=shell, log_dir=tmp_path)
+    loop = AgentLoop(client=FakeQuestionClient(), shell=shell, log_dir=tmp_path, max_steps=1)
 
     turns = loop.run("need input")
 
@@ -92,6 +107,30 @@ def test_agent_loop_can_pause_for_user_feedback(tmp_path) -> None:
     assert len(turns) == 1
     assert turns[0].awaiting_user_feedback is True
     assert turns[0].next_action_hint == "Which environment should I target?"
+
+
+def test_agent_loop_resumes_when_feedback_is_collected(tmp_path) -> None:
+    shell = FakeShell()
+    prompts: list[str] = []
+
+    def request_user_feedback(question: str) -> str:
+        prompts.append(question)
+        return "Use staging"
+
+    loop = AgentLoop(
+        client=FakeQuestionClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=3,
+        request_user_feedback=request_user_feedback,
+    )
+
+    turns = loop.run("need input")
+
+    assert prompts == ["Which environment should I target?"]
+    assert [turn.awaiting_user_feedback for turn in turns] == [True, False]
+    assert turns[1].command == "echo resumed"
+    assert shell.commands == ["echo resumed"]
 
 
 def test_agent_loop_confirms_completion_before_ending(tmp_path) -> None:

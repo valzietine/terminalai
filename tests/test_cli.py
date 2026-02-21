@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from terminalai import cli
+from terminalai.agent.models import SessionTurn
 from terminalai.config import AppConfig
 
 
@@ -143,3 +144,54 @@ def test_build_runtime_context_contains_shell_and_directory() -> None:
     assert "Runtime environment context:" in context
     assert "shell: powershell" in context
     assert "starting_working_directory: /tmp/work" in context
+
+
+def test_main_collects_feedback_and_prints_resumed_output(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_argv = ["terminalai", "need input"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    class FakeAdapter:
+        name = "fake"
+
+    class FakeLoop:
+        def __init__(self, **kwargs: object) -> None:
+            self.request_user_feedback = kwargs["request_user_feedback"]
+
+        def run(self, _goal: str) -> list[SessionTurn]:
+            response = self.request_user_feedback("Which environment should I target?")
+            assert response == "Use staging"
+            return [
+                SessionTurn(
+                    input="need input",
+                    command="",
+                    output="",
+                    next_action_hint="Which environment should I target?",
+                    awaiting_user_feedback=True,
+                ),
+                SessionTurn(
+                    input="need input",
+                    command="echo resumed",
+                    output="ok",
+                ),
+            ]
+
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(_fake_config)}),
+    )
+
+    answers = iter(["Use staging"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    assert cli.main() == 0
+
+    out = capsys.readouterr().out
+    assert "model paused and needs user input" in out
+    assert "question: Which environment should I target?" in out
+    assert "[2] $ echo resumed" in out

@@ -110,6 +110,18 @@ Notes:
 - A run can include multiple blocks (`[1]`, `[2]`, `[3]`, ...), one per command.
 - The same `output` text and `hint` are also appended to JSONL session logs in `logs/session-YYYY-MM-DD.log` (or `TERMINALAI_LOG_DIR`).
 
+When `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE=true`, the model can pause and ask one critical
+question if it cannot proceed safely. In that case, the CLI prompts:
+
+```text
+model paused and needs user input
+question: <model question>
+Your response: <you type here>
+```
+
+After you answer, the same run continues automatically. The follow-up model turn receives both
+the original goal and your new response in `session_context`.
+
 This section documents the **current** output contract. If the CLI output format changes, update this section in the same change.
 
 ### Environment variables
