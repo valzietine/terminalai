@@ -43,6 +43,14 @@ def _to_bool(value: str | None, default: bool = False) -> bool:
     return default
 
 
+def _to_bool_from_object(value: object, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return _to_bool(value, default=default)
+    return default
+
+
 @dataclass(slots=True)
 class AppConfig:
     """Runtime settings loaded from environment variables."""
@@ -90,8 +98,14 @@ class AppConfig:
                 or _to_optional_string(selected_model_config.get("reasoning_effort"))
                 or _default_reasoning_effort(selected_model)
             ),
-            safety_enabled=_to_bool(os.getenv("TERMINALAI_SAFETY_ENABLED"), default=True),
-            allow_unsafe=_to_bool(os.getenv("TERMINALAI_ALLOW_UNSAFE"), default=False),
+            safety_enabled=_to_bool(
+                os.getenv("TERMINALAI_SAFETY_ENABLED"),
+                default=_to_bool_from_object(file_config.get("safety_enabled"), default=True),
+            ),
+            allow_unsafe=_to_bool(
+                os.getenv("TERMINALAI_ALLOW_UNSAFE"),
+                default=_to_bool_from_object(file_config.get("allow_unsafe"), default=False),
+            ),
             api_url=(
                 os.getenv("TERMINALAI_API_URL")
                 or _to_optional_string(openai_config.get("api_url"))
@@ -109,11 +123,17 @@ class AppConfig:
             ),
             allow_user_feedback_pause=_to_bool(
                 os.getenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE"),
-                default=bool(file_config.get("allow_user_feedback_pause", False)),
+                default=_to_bool_from_object(
+                    file_config.get("allow_user_feedback_pause"),
+                    default=False,
+                ),
             ),
             confirm_before_complete=_to_bool(
                 os.getenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE"),
-                default=bool(file_config.get("confirm_before_complete", False)),
+                default=_to_bool_from_object(
+                    file_config.get("confirm_before_complete"),
+                    default=False,
+                ),
             ),
             shell=_resolve_shell(
                 os.getenv("TERMINALAI_SHELL")

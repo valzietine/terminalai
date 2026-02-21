@@ -13,9 +13,10 @@ This program enables an LLM from an API like OpenAI to interface with a user's t
 
 TerminalAI enforces shell guardrails by default. Commands matching destructive patterns (for example `rm -rf`, `del /s /q`, and similar) are sent to the shell adapter with `confirmed=false` unless unsafe execution is explicitly enabled.
 
-- `TERMINALAI_SAFETY_ENABLED=true` (default): guardrails are active; when a destructive command is proposed, the CLI asks for explicit user confirmation (`Run this command and continue? [y/N]`) before executing.
-- `TERMINALAI_ALLOW_UNSAFE=true`: destructive commands are treated as confirmed and can execute.
-- `TERMINALAI_SAFETY_ENABLED=false`: safety gating is disabled for destructive command confirmation checks.
+- `safety_enabled: true` (default): guardrails are active; when a destructive command is proposed, the CLI asks for explicit user confirmation (`Run this command and continue? [y/N]`) before executing.
+- `allow_unsafe: true`: destructive commands are treated as confirmed and can execute.
+- `safety_enabled: false`: safety gating is disabled for destructive command confirmation checks.
+- `TERMINALAI_SAFETY_ENABLED` and `TERMINALAI_ALLOW_UNSAFE` can still override these config defaults when needed.
 - Every command outcome is also fed back to the model as a structured `session_context` event (`command_executed`, `command_blocked`, or `command_declined`) including command text, safety flags, and normalized reason codes for blocked/declined paths.
 
 ## Platforms
@@ -145,8 +146,8 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
-- `TERMINALAI_SAFETY_ENABLED`: enables destructive-command safety gating (default: `true`).
-- `TERMINALAI_ALLOW_UNSAFE`: when `true`, destructive commands are treated as explicitly confirmed by policy and can run.
+- `TERMINALAI_SAFETY_ENABLED`: optional override for destructive-command safety gating (default from config: `safety_enabled`, fallback `true`).
+- `TERMINALAI_ALLOW_UNSAFE`: optional override for unsafe execution policy (default from config: `allow_unsafe`, fallback `false`).
 
 ### JSON config file
 
@@ -184,6 +185,8 @@ or platform defaults at runtime.
     }
   },
   "confirm_before_complete": false,
+  "safety_enabled": true,
+  "allow_unsafe": false,
   "shell": null,
   "max_steps": 20,
   "cwd": null,
