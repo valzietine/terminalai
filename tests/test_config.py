@@ -1,6 +1,7 @@
 import json
 
-from terminalai.config import AppConfig, _shell_value
+import terminalai.config as config_module
+from terminalai.config import AppConfig, _default_shell_for_platform, _shell_value
 
 
 def test_app_config_loads_openai_and_model_reasoning_from_file(tmp_path, monkeypatch) -> None:
@@ -229,3 +230,35 @@ def test_shell_value_normalizes_bash_aliases() -> None:
     assert _shell_value("sh") == "bash"
     assert _shell_value("shell") == "bash"
     assert _shell_value("pwsh") == "powershell"
+
+
+def test_default_shell_for_platform_windows(monkeypatch) -> None:
+    monkeypatch.setattr(config_module.os, "name", "nt")
+
+    assert _default_shell_for_platform() == "powershell"
+
+
+def test_default_shell_for_platform_posix(monkeypatch) -> None:
+    monkeypatch.setattr(config_module.os, "name", "posix")
+
+    assert _default_shell_for_platform() == "bash"
+
+
+def test_shell_falls_back_to_platform_default_when_unset(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"default_model": "gpt-5.2"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_SHELL", raising=False)
+    monkeypatch.setattr(config_module.os, "name", "nt")
+
+    windows_config = AppConfig.from_env()
+    assert windows_config.shell == "powershell"
+
+    monkeypatch.setattr(config_module.os, "name", "posix")
+
+    posix_config = AppConfig.from_env()
+    assert posix_config.shell == "bash"

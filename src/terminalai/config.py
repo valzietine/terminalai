@@ -115,10 +115,9 @@ class AppConfig:
                 os.getenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE"),
                 default=bool(file_config.get("confirm_before_complete", False)),
             ),
-            shell=_shell_value(
+            shell=_resolve_shell(
                 os.getenv("TERMINALAI_SHELL")
                 or _to_optional_string(file_config.get("shell"))
-                or "powershell"
             ),
             max_steps=_to_positive_int(
                 os.getenv("TERMINALAI_MAX_STEPS")
@@ -192,6 +191,16 @@ def _shell_value(value: str) -> str:
         "shell": "bash",
     }
     return aliases.get(normalized, "powershell")
+
+
+def _default_shell_for_platform() -> str:
+    return "powershell" if os.name == "nt" else "bash"
+
+
+def _resolve_shell(value: str | None) -> str:
+    if value is None:
+        return _default_shell_for_platform()
+    return _shell_value(value)
 
 
 def _to_positive_int(value: object, *, default: int) -> int:
