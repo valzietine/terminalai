@@ -17,6 +17,7 @@ ContextEvent = dict[str, ContextEventField]
 ConfirmCommandExecution = Callable[[str], bool]
 ConfirmCompletion = Callable[[str | None], tuple[bool, str | None]]
 RequestUserFeedback = Callable[[str], str]
+RequestTurnProgress = Callable[[int], tuple[bool, str | None]]
 
 CONTINUATION_PROMPT_TEXT = (
     "Would you like to keep going with new instructions while we retain this context?"
@@ -40,6 +41,8 @@ class AgentLoop:
         confirm_completion: ConfirmCompletion | None = None,
         request_user_feedback: RequestUserFeedback | None = None,
         continuation_prompt_enabled: bool = True,
+        auto_progress_turns: bool = True,
+        request_turn_progress: RequestTurnProgress | None = None,
     ) -> None:
         self.client = client
         self.shell = shell
@@ -52,6 +55,8 @@ class AgentLoop:
         self.confirm_completion = confirm_completion
         self.request_user_feedback = request_user_feedback
         self.continuation_prompt_enabled = continuation_prompt_enabled
+        self.auto_progress_turns = auto_progress_turns
+        self.request_turn_progress = request_turn_progress
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
@@ -61,6 +66,20 @@ class AgentLoop:
         exhausted_step_budget = True
         overarching_goal_complete = False
         for step_index in range(self.max_steps):
+            if not self.auto_progress_turns and self.request_turn_progress:
+                should_continue, instruction = self.request_turn_progress(step_index + 1)
+                if isinstance(instruction, str) and instruction.strip():
+                    self._append_context_event(
+                        context_events,
+                        event_type="user_turn_instruction",
+                        goal=goal,
+                        step=step_index + 1,
+                        instruction=instruction.strip(),
+                    )
+                if not should_continue:
+                    exhausted_step_budget = False
+                    break
+
             step_context = self._step_budget_context(step_index)
             context = (
                 [self._serialize_turn(turn) for turn in turns]
