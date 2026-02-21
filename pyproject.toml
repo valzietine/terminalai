@@ -10,7 +10,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "TerminalAI Contributors" }]
 dependencies = [
-  "python-dotenv>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]
