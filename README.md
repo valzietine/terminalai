@@ -16,6 +16,7 @@ TerminalAI enforces shell guardrails by default. Commands matching destructive p
 - `TERMINALAI_SAFETY_ENABLED=true` (default): guardrails are active; when a destructive command is proposed, the CLI asks for explicit user confirmation (`Run this command and continue? [y/N]`) before executing.
 - `TERMINALAI_ALLOW_UNSAFE=true`: destructive commands are treated as confirmed and can execute.
 - `TERMINALAI_SAFETY_ENABLED=false`: safety gating is disabled for destructive command confirmation checks.
+- Every command outcome is also fed back to the model as a structured `session_context` event (`command_executed`, `command_blocked`, or `command_declined`) including command text, safety flags, and normalized reason codes for blocked/declined paths.
 
 ## Platforms
 
