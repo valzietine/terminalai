@@ -1,21 +1,4 @@
 {
-  "_info": {
-    "designation_legend": {
-      "required": "Needed for API access in normal usage.",
-      "recommended": "Best-practice default for most users.",
-      "optional": "Only set when you need to customize behavior.",
-      "advanced": "Power-user setting; leave as-is unless needed."
-    },
-    "openai.api_url": "[recommended] API endpoint used for model responses.",
-    "openai.api_key": "[required] Secret key used to authenticate OpenAI requests.",
-    "default_model": "[recommended] Model name used unless TERMINALAI_MODEL overrides it.",
-    "models.<name>.reasoning_effort": "[optional] Per-model reasoning level (low, medium, high, or null).",
-    "log_dir": "[optional] Directory where session JSONL logs are written.",
-    "system_prompt": "[advanced] Default system instructions sent with each model call.",
-    "shell": "[recommended] Shell adapter for execution (cmd or powershell).",
-    "max_steps": "[optional] Max command iterations before the run stops.",
-    "cwd": "[optional] Starting working directory for executed commands (null = current directory)."
-  },
   "openai": {
     "api_url": "https://api.openai.com/v1/responses",
     "api_key": "YOUR_OPENAI_API_KEY"
