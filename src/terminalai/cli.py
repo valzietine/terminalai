@@ -78,6 +78,18 @@ def main() -> int:
         api_url=config.api_url,
         allow_user_feedback_pause=config.allow_user_feedback_pause,
     )
+    session_turns: list[SessionTurn] = []
+    current_goal = goal
+    rendered_turn_count = 0
+
+    def render_turn(turn: SessionTurn) -> None:
+        nonlocal rendered_turn_count
+        rendered_turn_count += 1
+        if config.readable_cli_output:
+            print(_render_turn(turn, rendered_turn_count))
+            return
+        _print_turn_legacy(turn, rendered_turn_count)
+
     loop = AgentLoop(
         client=client,
         shell=adapter,
@@ -90,29 +102,24 @@ def main() -> int:
         confirm_command_execution=_confirm_command_execution,
         request_user_feedback=_request_user_feedback,
         request_turn_progress=_request_turn_progress,
+        emit_turn=render_turn,
     )
 
-    session_turns: list[SessionTurn] = []
-    current_goal = goal
-    turn_offset = 0
-
     while True:
+        turns_rendered_before_run = rendered_turn_count
         turns = loop.run(current_goal, prior_turns=session_turns)
         if not turns and not session_turns:
             print("Session ended without command execution.")
             return 0
 
-        for idx, turn in enumerate(turns, start=turn_offset + 1):
-            if config.readable_cli_output:
-                print(_render_turn(turn, idx))
-                continue
-            _print_turn_legacy(turn, idx)
+        if rendered_turn_count == turns_rendered_before_run:
+            for turn in turns:
+                render_turn(turn)
 
         if not turns:
             break
 
         session_turns.extend(turns)
-        turn_offset = len(session_turns)
         final_turn = turns[-1]
         if not _should_prompt_for_continuation(final_turn):
             break
@@ -163,6 +170,7 @@ def _display_hint(turn: SessionTurn) -> str | None:
 
     sanitized_hint = hint.replace(CONTINUATION_PROMPT_TEXT, "").strip()
     return sanitized_hint or None
+
 
 def _confirm_command_execution(command: str) -> bool:
     print("\n=== DESTRUCTIVE COMMAND CONFIRMATION ===")
