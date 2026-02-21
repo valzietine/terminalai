@@ -150,3 +150,6 @@ ruff check .      # lint
 mypy              # typecheck (strict on shell modules)
 pytest            # test
 ```
+
+Tests now auto-add `src/` to `sys.path` via `tests/conftest.py`, so `pytest`
+works in clean runners without requiring `PYTHONPATH=src`.
