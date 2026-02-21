@@ -14,8 +14,7 @@ def _fake_config() -> AppConfig:
         api_key=None,
         model="gpt-5.2",
         reasoning_effort="medium",
-        safety_enabled=True,
-        allow_unsafe=False,
+        safety_mode="strict",
         api_url="https://api.openai.com/v1/responses",
         log_dir="logs",
         system_prompt="prompt",
@@ -99,8 +98,7 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert cli.main() == 0
     assert captured["working_directory"] == str(tmp_path.resolve())
-    assert captured["safety_enabled"] is True
-    assert captured["allow_unsafe"] is False
+    assert captured["safety_mode"] == "strict"
     assert captured["continuation_prompt_enabled"] is True
 
 
@@ -146,15 +144,13 @@ def test_build_runtime_context_contains_shell_and_directory() -> None:
     context = cli.build_runtime_context(
         "powershell",
         "/tmp/work",
-        safety_enabled=True,
-        allow_unsafe=False,
+        safety_mode="strict",
     )
 
     assert "Runtime environment context:" in context
     assert "shell: powershell" in context
     assert "starting_working_directory: /tmp/work" in context
-    assert "safety_enabled: True" in context
-    assert "allow_unsafe: False" in context
+    assert "safety_mode: strict" in context
 
 
 def test_main_collects_feedback_and_prints_resumed_output(
