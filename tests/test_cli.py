@@ -19,6 +19,7 @@ def _fake_config() -> AppConfig:
         log_dir="logs",
         system_prompt="prompt",
         allow_user_feedback_pause=False,
+        confirm_before_complete=False,
         shell="powershell",
         max_steps=20,
         working_directory=None,
@@ -88,3 +89,59 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert cli.main() == 0
     assert captured["working_directory"] == str(tmp_path.resolve())
+
+
+def test_main_passes_completion_confirmation_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_argv = ["terminalai", "list files"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    class FakeAdapter:
+        name = "fake"
+
+    captured: dict[str, object] = {}
+
+    class FakeLoop:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def run(self, _goal: str) -> list[object]:
+            return []
+
+    def fake_config() -> AppConfig:
+        config = _fake_config()
+        config.working_directory = str(tmp_path)
+        config.confirm_before_complete = True
+        return config
+
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(fake_config)}),
+    )
+
+    assert cli.main() == 0
+    assert captured["confirm_before_complete"] is True
+    assert callable(captured["confirm_completion"])
+
+
+def test_confirm_completion_accepts_default_yes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("builtins.input", lambda _prompt: "")
+
+    should_end, follow_up = cli._confirm_completion("done")
+
+    assert should_end is True
+    assert follow_up is None
+
+
+def test_confirm_completion_collects_follow_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    answers = iter(["n", "please show logs"]) 
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+
+    should_end, follow_up = cli._confirm_completion(None)
+
+    assert should_end is False
+    assert follow_up == "please show logs"

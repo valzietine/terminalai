@@ -103,6 +103,7 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_LOG_DIR`: directory for session logs (default: `logs`).
 - `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
 - `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
+- `TERMINALAI_CONFIRM_BEFORE_COMPLETE`: when true, asks the user to confirm before ending after the model marks the task complete. If the user declines, the CLI captures follow-up objectives/questions and continues the run with that feedback.
 - `TERMINALAI_SHELL`: shell adapter (`cmd` or `powershell`, default `powershell`).
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
@@ -128,6 +129,7 @@ This section documents the **current** output contract. If the CLI output format
       "reasoning_effort": "medium"
     }
   },
+  "confirm_before_complete": false,
   "shell": "powershell",
   "max_steps": 20,
   "cwd": null,

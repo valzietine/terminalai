@@ -92,3 +92,62 @@ def test_agent_loop_can_pause_for_user_feedback(tmp_path) -> None:
     assert len(turns) == 1
     assert turns[0].awaiting_user_feedback is True
     assert turns[0].next_action_hint == "Which environment should I target?"
+
+
+def test_agent_loop_confirms_completion_before_ending(tmp_path) -> None:
+    shell = FakeShell()
+    prompts: list[str | None] = []
+
+    def confirm_completion(notes: str | None) -> tuple[bool, str | None]:
+        prompts.append(notes)
+        return True, None
+
+    loop = AgentLoop(
+        client=FakeClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        confirm_before_complete=True,
+        confirm_completion=confirm_completion,
+    )
+
+    turns = loop.run("list files")
+
+    assert len(turns) == 1
+    assert prompts == ["done"]
+
+
+class FakeCompletionFeedbackClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
+        if self.calls == 1:
+            return ModelDecision(command=None, notes="done", complete=True)
+        assert session_context[-1]["next_action_hint"] == (
+            "User declined completion: Please show what changed and explain it."
+        )
+        return ModelDecision(command="echo follow-up", notes=None, complete=False)
+
+
+def test_agent_loop_resumes_after_user_declines_completion(tmp_path) -> None:
+    shell = FakeShell()
+
+    def confirm_completion(_notes: str | None) -> tuple[bool, str | None]:
+        return False, "Please show what changed and explain it."
+
+    loop = AgentLoop(
+        client=FakeCompletionFeedbackClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=2,
+        confirm_before_complete=True,
+        confirm_completion=confirm_completion,
+    )
+
+    turns = loop.run("list files")
+
+    assert len(turns) == 2
+    assert turns[0].command == ""
+    assert turns[1].command == "echo follow-up"
+    assert shell.commands == ["echo follow-up"]

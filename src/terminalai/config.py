@@ -56,6 +56,7 @@ class AppConfig:
     log_dir: str
     system_prompt: str
     allow_user_feedback_pause: bool
+    confirm_before_complete: bool
     shell: str
     max_steps: int
     working_directory: str | None
@@ -111,6 +112,10 @@ class AppConfig:
             allow_user_feedback_pause=_to_bool(
                 os.getenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE"),
                 default=bool(file_config.get("allow_user_feedback_pause", False)),
+            ),
+            confirm_before_complete=_to_bool(
+                os.getenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE"),
+                default=bool(file_config.get("confirm_before_complete", False)),
             ),
             shell=_shell_value(
                 os.getenv("TERMINALAI_SHELL")
