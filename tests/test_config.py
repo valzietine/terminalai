@@ -1,6 +1,6 @@
 import json
 
-from terminalai.config import AppConfig
+from terminalai.config import AppConfig, _shell_value
 
 
 def test_app_config_loads_openai_and_model_reasoning_from_file(tmp_path, monkeypatch) -> None:
@@ -160,12 +160,12 @@ def test_runtime_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
     assert file_config.max_steps == 11
     assert file_config.working_directory == "./test-dir"
 
-    monkeypatch.setenv("TERMINALAI_SHELL", "powershell")
+    monkeypatch.setenv("TERMINALAI_SHELL", "sh")
     monkeypatch.setenv("TERMINALAI_MAX_STEPS", "7")
     monkeypatch.setenv("TERMINALAI_CWD", "~/project")
 
     env_config = AppConfig.from_env()
-    assert env_config.shell == "powershell"
+    assert env_config.shell == "bash"
     assert env_config.max_steps == 7
     assert env_config.working_directory == "~/project"
 
@@ -221,3 +221,11 @@ def test_explicit_config_file_disables_local_auto_merge(tmp_path, monkeypatch) -
     config = AppConfig.from_env()
 
     assert config.max_steps == 3
+
+
+def test_shell_value_normalizes_bash_aliases() -> None:
+    assert _shell_value("bash") == "bash"
+    assert _shell_value("BASH") == "bash"
+    assert _shell_value("sh") == "bash"
+    assert _shell_value("shell") == "bash"
+    assert _shell_value("pwsh") == "powershell"

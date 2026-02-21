@@ -5,12 +5,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from terminalai.shell import CmdAdapter, PowerShellAdapter, create_shell_adapter
+from terminalai.shell import BashAdapter, CmdAdapter, PowerShellAdapter, create_shell_adapter
 
 
 @pytest.mark.parametrize(
     ("factory_input", "expected_type"),
-    [("cmd", CmdAdapter), ("powershell", PowerShellAdapter)],
+    [
+        ("cmd", CmdAdapter),
+        ("powershell", PowerShellAdapter),
+        ("bash", BashAdapter),
+        ("sh", BashAdapter),
+    ],
 )
 def test_create_shell_adapter(factory_input: str, expected_type: type[object]) -> None:
     adapter = create_shell_adapter(factory_input)
@@ -19,7 +24,7 @@ def test_create_shell_adapter(factory_input: str, expected_type: type[object]) -
 
 def test_create_shell_adapter_invalid() -> None:
     with pytest.raises(ValueError):
-        create_shell_adapter("bash")
+        create_shell_adapter("zsh")
 
 
 def test_cmd_adapter_dry_run() -> None:
@@ -111,3 +116,29 @@ def test_cmd_adapter_nonzero_exit_handling(monkeypatch: pytest.MonkeyPatch) -> N
     assert result.returncode == 42
     assert result.stderr == "bad command"
     assert result.timed_out is False
+
+
+def test_bash_adapter_runs_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
+        assert args[0] == ["bash", "-lc", "echo hi"]
+        assert kwargs["cwd"] == "/repo"
+        return SimpleNamespace(returncode=0, stdout=b"hi", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = BashAdapter(executable="bash").execute("echo hi", cwd="/repo", confirmed=True)
+    assert result.returncode == 0
+
+
+def test_bash_adapter_falls_back_to_sh(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_which(name: str) -> str | None:
+        if name == "bash":
+            return None
+        if name == "sh":
+            return "/bin/sh"
+        return None
+
+    monkeypatch.setattr("terminalai.shell.bash_adapter.shutil.which", fake_which)
+
+    adapter = BashAdapter()
+
+    assert adapter.executable == "sh"

@@ -183,9 +183,15 @@ def _default_reasoning_effort(model: str) -> str | None:
 
 def _shell_value(value: str) -> str:
     normalized = value.strip().lower()
-    if normalized in {"cmd", "powershell"}:
-        return normalized
-    return "powershell"
+    aliases = {
+        "cmd": "cmd",
+        "powershell": "powershell",
+        "pwsh": "powershell",
+        "bash": "bash",
+        "sh": "bash",
+        "shell": "bash",
+    }
+    return aliases.get(normalized, "powershell")
 
 
 def _to_positive_int(value: object, *, default: int) -> int:
