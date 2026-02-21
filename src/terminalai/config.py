@@ -31,8 +31,9 @@ DEFAULT_SYSTEM_PROMPT = " ".join(
             " notes (string or null), complete (boolean)."
         ),
         (
-            "Use notes as a concise 'what I will do next' hint focused on the"
-            " immediate next step, unless the goal is complete."
+            "Use notes as a concise hint that explains what is happening now,"
+            " what just happened, and what I will do next, unless the goal is"
+            " complete."
         ),
     ]
 )

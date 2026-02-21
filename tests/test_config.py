@@ -100,7 +100,9 @@ def test_system_prompt_supports_file_and_env_override(tmp_path, monkeypatch) -> 
     assert env_config.system_prompt == "prompt from env"
 
 
-def test_default_system_prompt_describes_notes_as_next_action_hint() -> None:
+def test_default_system_prompt_describes_notes_as_richer_hint() -> None:
+    assert "what is happening now" in config_module.DEFAULT_SYSTEM_PROMPT
+    assert "what just happened" in config_module.DEFAULT_SYSTEM_PROMPT
     assert "what I will do next" in config_module.DEFAULT_SYSTEM_PROMPT
 
 
