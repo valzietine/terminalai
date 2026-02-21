@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
 from terminalai.agent.models import AgentStep, ExecutionResult, SessionTurn
 from terminalai.llm.client import LLMClient
 from terminalai.shell import ShellAdapter
+
+ContextEventField = str | int | bool
+ContextEvent = dict[str, ContextEventField]
+ConfirmCommandExecution = Callable[[str], bool]
+ConfirmCompletion = Callable[[str | None], tuple[bool, str | None]]
+RequestUserFeedback = Callable[[str], str]
 
 
 class AgentLoop:
@@ -27,9 +32,9 @@ class AgentLoop:
         confirm_before_complete: bool = False,
         safety_enabled: bool = True,
         allow_unsafe: bool = False,
-        confirm_command_execution: Callable[[str], bool] | None = None,
-        confirm_completion: Callable[[str | None], tuple[bool, str | None]] | None = None,
-        request_user_feedback: Callable[[str], str] | None = None,
+        confirm_command_execution: ConfirmCommandExecution | None = None,
+        confirm_completion: ConfirmCompletion | None = None,
+        request_user_feedback: RequestUserFeedback | None = None,
     ) -> None:
         self.client = client
         self.shell = shell
@@ -45,15 +50,15 @@ class AgentLoop:
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
-        context_events: list[dict[str, object]] = []
+        context_events: list[ContextEvent] = []
         safety_policy_context = self._safety_policy_context()
 
         exhausted_step_budget = True
         for step_index in range(self.max_steps):
             step_context = self._step_budget_context(step_index)
             context = (
-                [asdict(turn) for turn in turns]
-                + context_events
+                [self._serialize_turn(turn) for turn in turns]
+                + [dict(event) for event in context_events]
                 + [step_context, safety_policy_context]
             )
             decision = self.client.next_command(goal=goal, session_context=context)
@@ -238,13 +243,23 @@ class AgentLoop:
         return turns
 
     @staticmethod
+    def _serialize_turn(turn: SessionTurn) -> dict[str, object]:
+        return {
+            "input": turn.input,
+            "command": turn.command,
+            "output": turn.output,
+            "next_action_hint": turn.next_action_hint,
+            "awaiting_user_feedback": turn.awaiting_user_feedback,
+        }
+
+    @staticmethod
     def _append_context_event(
-        context_events: list[dict[str, object]],
+        context_events: list[ContextEvent],
         *,
         event_type: str,
         goal: str,
         timestamp: str | None = None,
-        **fields: object,
+        **fields: ContextEventField,
     ) -> None:
         context_events.append(
             {

@@ -53,7 +53,7 @@ class LLMClient:
         req = request.Request(self.api_url, data=body, headers=headers, method="POST")
         try:
             with request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
-                raw = json.loads(resp.read().decode("utf-8"))
+                raw_response = json.loads(resp.read().decode("utf-8"))
         except HTTPError as exc:
             return self._safe_failure_decision(
                 f"Model request failed with HTTP {exc.code}: {exc.reason}"
@@ -62,6 +62,12 @@ class LLMClient:
             return self._safe_failure_decision(f"Model request transport error: {exc.reason}")
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             return self._safe_failure_decision(f"Model response parsing error: {exc}")
+
+        raw = self._coerce_object_dict(raw_response)
+        if raw is None:
+            return self._safe_failure_decision(
+                "Model response parsing error: expected top-level object"
+            )
 
         try:
             parsed = self._extract_output_json(raw)
@@ -136,24 +142,34 @@ class LLMClient:
         return payload
 
     @staticmethod
-    def _extract_output_json(payload: dict[str, object]) -> dict[str, object]:
+    def _coerce_object_dict(value: object) -> dict[str, object] | None:
+        if not isinstance(value, dict):
+            return None
+        return {str(key): raw_value for key, raw_value in value.items()}
+
+    @classmethod
+    def _extract_output_json(cls, payload: dict[str, object]) -> dict[str, object]:
         output_items = payload.get("output")
         if not isinstance(output_items, list):
             return {"command": None, "notes": "No structured output returned", "complete": True}
 
         for item in output_items:
-            if not isinstance(item, dict):
+            item_object = cls._coerce_object_dict(item)
+            if item_object is None:
                 continue
-            content_items = item.get("content")
+            content_items = item_object.get("content")
             if not isinstance(content_items, list):
                 continue
             for content in content_items:
-                if not isinstance(content, dict):
+                content_object = cls._coerce_object_dict(content)
+                if content_object is None:
                     continue
-                if content.get("type") == "output_text" and content.get("text"):
-                    parsed = json.loads(str(content["text"]))
-                    if isinstance(parsed, dict):
-                        return {str(key): value for key, value in parsed.items()}
+                content_type = content_object.get("type")
+                content_text = content_object.get("text")
+                if content_type == "output_text" and isinstance(content_text, str):
+                    parsed = cls._coerce_object_dict(json.loads(content_text))
+                    if parsed is not None:
+                        return parsed
                     break
         return {"command": None, "notes": "No structured output returned", "complete": True}
 

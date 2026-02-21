@@ -44,10 +44,26 @@ select = ["E", "F", "I", "UP"]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
-files = ["src/terminalai/shell"]
+files = [
+  "src/terminalai/shell",
+  "src/terminalai/agent",
+  "src/terminalai/cli.py",
+  "src/terminalai/llm",
+]
 exclude = "^tests/"
 
 [[tool.mypy.overrides]]
 module = ["terminalai.shell.*"]
 strict = true
 
+[[tool.mypy.overrides]]
+module = ["terminalai.agent.*"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["terminalai.llm.*"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["terminalai.cli"]
+strict = true
