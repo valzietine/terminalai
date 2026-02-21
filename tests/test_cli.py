@@ -98,6 +98,8 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
 
     assert cli.main() == 0
     assert captured["working_directory"] == str(tmp_path.resolve())
+    assert captured["safety_enabled"] is True
+    assert captured["allow_unsafe"] is False
 
 
 def test_main_cwd_cli_override_takes_precedence(
@@ -139,11 +141,18 @@ def test_main_cwd_cli_override_takes_precedence(
 
 
 def test_build_runtime_context_contains_shell_and_directory() -> None:
-    context = cli.build_runtime_context("powershell", "/tmp/work")
+    context = cli.build_runtime_context(
+        "powershell",
+        "/tmp/work",
+        safety_enabled=True,
+        allow_unsafe=False,
+    )
 
     assert "Runtime environment context:" in context
     assert "shell: powershell" in context
     assert "starting_working_directory: /tmp/work" in context
+    assert "safety_enabled: True" in context
+    assert "allow_unsafe: False" in context
 
 
 def test_main_collects_feedback_and_prints_resumed_output(
@@ -195,3 +204,9 @@ def test_main_collects_feedback_and_prints_resumed_output(
     assert "model paused and needs user input" in out
     assert "question: Which environment should I target?" in out
     assert "[2] $ echo resumed" in out
+
+
+def test_confirm_command_execution_prompts_and_accepts_yes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
+
+    assert cli._confirm_command_execution("rm -rf ./tmp") is True

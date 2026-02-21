@@ -16,7 +16,13 @@ from .shell import create_shell_adapter
 LOGGER = logging.getLogger(__name__)
 
 
-def build_runtime_context(shell_name: str, working_directory: str | None) -> str:
+def build_runtime_context(
+    shell_name: str,
+    working_directory: str | None,
+    *,
+    safety_enabled: bool,
+    allow_unsafe: bool,
+) -> str:
     """Build startup orientation context for the model."""
     effective_cwd = working_directory or str(Path.cwd())
     return "\n".join(
@@ -28,6 +34,8 @@ def build_runtime_context(shell_name: str, working_directory: str | None) -> str
             f"- os_name: {os.name}",
             f"- shell: {shell_name}",
             f"- starting_working_directory: {effective_cwd}",
+            f"- safety_enabled: {safety_enabled}",
+            f"- allow_unsafe: {allow_unsafe}",
             "Use this context to orient command choices to this machine.",
         ]
     )
@@ -74,7 +82,12 @@ def main() -> int:
         api_key=config.api_key,
         model=config.model,
         system_prompt=config.system_prompt,
-        runtime_context=build_runtime_context(config.shell, working_directory),
+        runtime_context=build_runtime_context(
+            config.shell,
+            working_directory,
+            safety_enabled=config.safety_enabled,
+            allow_unsafe=config.allow_unsafe,
+        ),
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,
         allow_user_feedback_pause=config.allow_user_feedback_pause,
@@ -86,6 +99,9 @@ def main() -> int:
         max_steps=config.max_steps,
         working_directory=working_directory,
         confirm_before_complete=config.confirm_before_complete,
+        safety_enabled=config.safety_enabled,
+        allow_unsafe=config.allow_unsafe,
+        confirm_command_execution=_confirm_command_execution,
         confirm_completion=_confirm_completion,
         request_user_feedback=_request_user_feedback,
     )
@@ -109,6 +125,13 @@ def main() -> int:
     LOGGER.debug("shell_adapter_selected", extra={"shell": adapter.name})
     return 0
 
+
+
+def _confirm_command_execution(command: str) -> bool:
+    print("Destructive command proposed by model:")
+    print(f"command: {command}")
+    choice = input("Run this command and continue? [y/N]: ").strip().lower()
+    return choice in {"y", "yes"}
 
 def _confirm_completion(model_notes: str | None) -> tuple[bool, str | None]:
     if model_notes:

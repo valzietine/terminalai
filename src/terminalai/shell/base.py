@@ -100,6 +100,10 @@ class ShellAdapter(abc.ABC):
     def _is_destructive(self, command: str) -> bool:
         return any(pattern.search(command) for pattern in _DESTRUCTIVE_PATTERNS)
 
+    def is_destructive_command(self, command: str) -> bool:
+        """Return true when a command matches destructive command heuristics."""
+        return self._is_destructive(command)
+
     def log_request(self, command: str, *, timeout: float | None, dry_run: bool) -> None:
         LOGGER.info(
             "command_request",
