@@ -57,6 +57,11 @@ class FakeClient:
         self.contexts.append(session_context)
         if self.calls == 1:
             assert goal == "list files"
+            step_budget = [event for event in session_context if event.get("type") == "step_budget"]
+            assert len(step_budget) == 1
+            assert step_budget[0]["current_step"] == 1
+            assert step_budget[0]["max_steps"] >= 1
+            assert step_budget[0]["steps_remaining"] == step_budget[0]["max_steps"] - 1
             assert session_context[-1]["type"] == "safety_policy"
             return ModelDecision(command="echo hi", notes="continue", complete=False)
         return ModelDecision(command=None, notes="done", complete=True)
@@ -201,9 +206,10 @@ def test_agent_loop_resumes_after_user_declines_completion(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 2
+    assert len(turns) == 3
     assert turns[0].command == ""
     assert turns[1].command == "echo follow-up"
+    assert "Step budget exhausted" in turns[2].output
     assert shell.commands == ["echo follow-up"]
 
 
@@ -360,3 +366,50 @@ def test_agent_loop_emits_executed_command_context_event(tmp_path) -> None:
     assert executed_events[0]["returncode"] == 0
     assert executed_events[0]["safety_enabled"] is True
     assert executed_events[0]["allow_unsafe"] is False
+
+
+def test_agent_loop_updates_step_budget_context_each_iteration(tmp_path) -> None:
+    shell = FakeShell()
+    client = FakeClient()
+    loop = AgentLoop(client=client, shell=shell, log_dir=tmp_path, max_steps=3)
+
+    loop.run("list files")
+
+    first_budget_events = [
+        event for event in client.contexts[0] if event.get("type") == "step_budget"
+    ]
+    second_budget_events = [
+        event for event in client.contexts[1] if event.get("type") == "step_budget"
+    ]
+
+    assert first_budget_events[0]["current_step"] == 1
+    assert first_budget_events[0]["steps_remaining"] == 2
+    assert second_budget_events[0]["current_step"] == 2
+    assert second_budget_events[0]["steps_remaining"] == 1
+
+
+class NeverCompleteClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
+        return ModelDecision(command="echo still-working", notes="continue", complete=False)
+
+
+def test_agent_loop_notifies_when_step_budget_is_exhausted(tmp_path) -> None:
+    shell = FakeShell()
+    client = NeverCompleteClient()
+    loop = AgentLoop(client=client, shell=shell, log_dir=tmp_path, max_steps=1)
+
+    turns = loop.run("keep working")
+
+    assert client.calls == 1
+    assert shell.commands == ["echo still-working"]
+    assert len(turns) == 2
+    assert turns[-1].command == ""
+    assert "Step budget exhausted" in turns[-1].output
+    assert turns[-1].next_action_hint == (
+        "I reached the maximum number of steps and could not finish. "
+        "Please continue in a new run or raise max_steps."
+    )
