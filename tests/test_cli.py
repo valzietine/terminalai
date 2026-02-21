@@ -19,6 +19,7 @@ def _fake_config() -> AppConfig:
         log_dir="logs",
         system_prompt="prompt",
         allow_user_feedback_pause=False,
+        confirm_before_complete=False,
         shell="powershell",
         max_steps=20,
         working_directory=None,

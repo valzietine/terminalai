@@ -76,6 +76,8 @@ def main() -> int:
         log_dir=config.log_dir,
         max_steps=config.max_steps,
         working_directory=working_directory,
+        confirm_before_complete=config.confirm_before_complete,
+        confirm_completion=_confirm_completion,
     )
 
     turns = loop.run(goal)
@@ -96,6 +98,20 @@ def main() -> int:
 
     LOGGER.debug("shell_adapter_selected", extra={"shell": adapter.name})
     return 0
+
+
+def _confirm_completion(model_notes: str | None) -> tuple[bool, str | None]:
+    if model_notes:
+        print(f"model completion note: {model_notes}")
+
+    choice = input("Model marked the task complete. End session? [Y/n]: ").strip().lower()
+    if choice in {"", "y", "yes"}:
+        return True, None
+
+    follow_up = input(
+        "What should happen next? (objective changes, debrief questions, etc.): "
+    ).strip()
+    return False, follow_up
 
 
 if __name__ == "__main__":
