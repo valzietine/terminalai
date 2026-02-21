@@ -13,6 +13,8 @@ from terminalai.llm.client import LLMClient
 from terminalai.shell import ShellAdapter
 
 ContextEventField = str | int | bool
+PHASE_MUTATION = "mutation"
+PHASE_VERIFICATION = "verification"
 ContextEvent = dict[str, ContextEventField]
 ConfirmCommandExecution = Callable[[str], bool]
 ConfirmCompletion = Callable[[str | None], tuple[bool, str | None]]
@@ -65,6 +67,7 @@ class AgentLoop:
 
         exhausted_step_budget = True
         overarching_goal_complete = False
+        verification_required = False
         for step_index in range(self.max_steps):
             if not self.auto_progress_turns and self.request_turn_progress:
                 should_continue, instruction = self.request_turn_progress(step_index + 1)
@@ -95,6 +98,10 @@ class AgentLoop:
                     next_action_hint=decision.user_question,
                     awaiting_user_feedback=True,
                     turn_complete=True,
+                    phase=decision.phase,
+                    expected_outcome=decision.expected_outcome,
+                    verification_command=decision.verification_command,
+                    risk_level=decision.risk_level,
                 )
                 turns.append(turn)
                 self._append_log(
@@ -121,6 +128,37 @@ class AgentLoop:
                 )
                 continue
             if decision.complete or not decision.command:
+                if decision.complete and verification_required:
+                    self._append_context_event(
+                        context_events,
+                        event_type="phase_transition_blocked",
+                        goal=goal,
+                        requested_phase=decision.phase,
+                        required_phase=PHASE_VERIFICATION,
+                    )
+                    turn = SessionTurn(
+                        input=goal,
+                        command="",
+                        output="",
+                        next_action_hint=(
+                            "Run a verification phase after the last mutation before "
+                            "marking the goal complete."
+                        ),
+                        turn_complete=True,
+                        subtask_complete=True,
+                        phase=decision.phase,
+                        expected_outcome=decision.expected_outcome,
+                        verification_command=decision.verification_command,
+                        risk_level=decision.risk_level,
+                    )
+                    turns.append(turn)
+                    self._append_log(
+                        turn,
+                        goal=goal,
+                        step_index=step_index + 1,
+                        complete_signal=decision.complete,
+                    )
+                    continue
                 if self.confirm_before_complete and self.confirm_completion:
                     should_end, completion_feedback = self.confirm_completion(decision.notes)
                     if not should_end:
@@ -137,6 +175,10 @@ class AgentLoop:
                             next_action_hint=f"User declined completion: {feedback_text}",
                             turn_complete=True,
                             subtask_complete=True,
+                            phase=decision.phase,
+                            expected_outcome=decision.expected_outcome,
+                            verification_command=decision.verification_command,
+                            risk_level=decision.risk_level,
                         )
                         turns.append(turn)
                         self._append_log(
@@ -150,7 +192,14 @@ class AgentLoop:
                 overarching_goal_complete = bool(decision.complete)
                 break
 
-            step = AgentStep(goal=goal, proposed_command=decision.command)
+            step = AgentStep(
+                goal=goal,
+                proposed_command=decision.command,
+                phase=decision.phase,
+                expected_outcome=decision.expected_outcome,
+                verification_command=decision.verification_command,
+                risk_level=decision.risk_level,
+            )
             destructive = self.shell.is_destructive_command(step.proposed_command)
             confirmed, declined = self._resolve_command_confirmation(
                 command=step.proposed_command,
@@ -179,6 +228,10 @@ class AgentLoop:
                         "User declined command execution; choose a safer alternative."
                     ),
                     turn_complete=True,
+                    phase=step.phase,
+                    expected_outcome=step.expected_outcome,
+                    verification_command=step.verification_command,
+                    risk_level=step.risk_level,
                 )
                 turns.append(turn)
                 self._append_log(
@@ -222,12 +275,21 @@ class AgentLoop:
                 duration=command_result.duration_seconds,
             )
             output = self._format_result(result)
+            if step.phase == PHASE_MUTATION:
+                verification_required = True
+            elif step.phase == PHASE_VERIFICATION:
+                verification_required = False
+
             turn = SessionTurn(
                 input=goal,
                 command=step.proposed_command,
                 output=output,
                 next_action_hint=decision.notes,
                 turn_complete=True,
+                phase=step.phase,
+                expected_outcome=step.expected_outcome,
+                verification_command=step.verification_command,
+                risk_level=step.risk_level,
             )
             turns.append(turn)
             self._append_log(
@@ -291,6 +353,10 @@ class AgentLoop:
             "turn_complete": turn.turn_complete,
             "subtask_complete": turn.subtask_complete,
             "overarching_goal_complete": turn.overarching_goal_complete,
+            "phase": turn.phase,
+            "expected_outcome": turn.expected_outcome,
+            "verification_command": turn.verification_command,
+            "risk_level": turn.risk_level,
         }
 
     @staticmethod
@@ -366,6 +432,10 @@ class AgentLoop:
             "subtask_complete": turn.subtask_complete,
             "overarching_goal_complete": turn.overarching_goal_complete,
             "continuation_prompt_added": turn.continuation_prompt_added,
+            "phase": turn.phase,
+            "expected_outcome": turn.expected_outcome,
+            "verification_command": turn.verification_command,
+            "risk_level": turn.risk_level,
             "complete_signal": complete_signal,
         }
         with day_file.open("a", encoding="utf-8") as handle:

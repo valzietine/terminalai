@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
+
+DecisionPhase = Literal["analysis", "mutation", "verification", "completion"]
+RiskLevel = Literal["low", "medium", "high"]
 
 
 @dataclass(slots=True)
@@ -11,6 +15,10 @@ class AgentStep:
 
     goal: str
     proposed_command: str
+    phase: DecisionPhase = "analysis"
+    expected_outcome: str | None = None
+    verification_command: str | None = None
+    risk_level: RiskLevel | None = None
 
 
 @dataclass(slots=True)
@@ -36,3 +44,7 @@ class SessionTurn:
     subtask_complete: bool = False
     overarching_goal_complete: bool = False
     continuation_prompt_added: bool = False
+    phase: DecisionPhase = "analysis"
+    expected_outcome: str | None = None
+    verification_command: str | None = None
+    risk_level: RiskLevel | None = None
