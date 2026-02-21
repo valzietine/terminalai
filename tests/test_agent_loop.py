@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import platform
+import sys
 from dataclasses import dataclass
 
 import pytest
@@ -60,6 +62,13 @@ class FakeClient:
         self.contexts.append(session_context)
         if self.calls == 1:
             assert goal == "list files"
+            runtime_context = [
+                event for event in session_context if event.get("type") == "runtime_context"
+            ]
+            assert len(runtime_context) == 1
+            assert runtime_context[0]["shell_adapter"] == "fake"
+            assert runtime_context[0]["sys_platform"] == sys.platform
+            assert runtime_context[0]["platform"] == platform.platform()
             step_budget = [event for event in session_context if event.get("type") == "step_budget"]
             assert len(step_budget) == 1
             assert step_budget[0]["current_step"] == 1
