@@ -200,10 +200,10 @@ def _request_user_feedback(question: str) -> str:
     return input("Your response: ")
 
 
-def _render_status(*, awaiting_user_feedback: bool, turn_complete: bool) -> str:
+def _render_status(*, awaiting_user_feedback: bool, run_terminal: bool) -> str:
     if awaiting_user_feedback:
         return "needs input"
-    if turn_complete:
+    if run_terminal:
         return "completed"
     return "running"
 
@@ -211,7 +211,7 @@ def _render_status(*, awaiting_user_feedback: bool, turn_complete: bool) -> str:
 def _render_turn(turn: SessionTurn, idx: int) -> str:
     status = _render_status(
         awaiting_user_feedback=turn.awaiting_user_feedback,
-        turn_complete=turn.turn_complete,
+        run_terminal=turn.overarching_goal_complete,
     )
     lines = [f"=== Turn {idx} ({status}) ==="]
 

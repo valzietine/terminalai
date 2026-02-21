@@ -216,7 +216,7 @@ def test_agent_loop_completion_log_metadata_matches_terminal_turn(tmp_path) -> N
     assert turns[-1].next_action_hint is not None
     assert turns[-1].next_action_hint.startswith(payloads[-1]["next_action_hint"])
     assert payloads[-1]["complete_signal"] is True
-    assert payloads[-1]["overarching_goal_complete"] is False
+    assert payloads[-1]["overarching_goal_complete"] is True
     assert turns[-1].overarching_goal_complete is True
     assert CONTINUATION_PROMPT_TEXT in (turns[-1].next_action_hint or "")
 
@@ -559,7 +559,8 @@ def test_agent_loop_can_disable_continuation_prompt(tmp_path) -> None:
 
     assert turns[0].next_action_hint == "continue"
     assert turns[-1].next_action_hint == "done"
-    assert all(turn.overarching_goal_complete is False for turn in turns)
+    assert turns[0].overarching_goal_complete is False
+    assert turns[-1].overarching_goal_complete is True
 
 
 def test_agent_loop_pauses_between_turns_when_auto_progress_disabled(tmp_path) -> None:

@@ -233,6 +233,7 @@ def test_render_turn_trims_trailing_output_whitespace() -> None:
             output="line 1\nline 2\n\n",
             next_action_hint="Done",
             turn_complete=True,
+            overarching_goal_complete=True,
         ),
         3,
     )
