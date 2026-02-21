@@ -23,6 +23,9 @@ env/
 logs/
 *.log
 
+# Local developer overrides
+terminalai.config.local.json
+
 # Editors / IDEs
 .vscode/
 .idea/

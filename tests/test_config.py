@@ -168,3 +168,56 @@ def test_runtime_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
     assert env_config.shell == "powershell"
     assert env_config.max_steps == 7
     assert env_config.working_directory == "~/project"
+
+
+def test_local_config_auto_loaded_without_env_override(tmp_path, monkeypatch) -> None:
+    (tmp_path / "terminalai.config.json").write_text(
+        json.dumps(
+            {
+                "default_model": "gpt-5.2",
+                "openai": {
+                    "api_url": "https://example.invalid/base",
+                    "api_key": "base-key",
+                },
+                "max_steps": 20,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "terminalai.config.local.json").write_text(
+        json.dumps(
+            {
+                "openai": {"api_key": "local-key"},
+                "max_steps": 7,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TERMINALAI_CONFIG_FILE", raising=False)
+
+    config = AppConfig.from_env()
+
+    assert config.api_key == "local-key"
+    assert config.api_url == "https://example.invalid/base"
+    assert config.max_steps == 7
+
+
+def test_explicit_config_file_disables_local_auto_merge(tmp_path, monkeypatch) -> None:
+    explicit_path = tmp_path / "custom.config.json"
+    explicit_path.write_text(
+        json.dumps({"default_model": "gpt-5.2", "max_steps": 3}),
+        encoding="utf-8",
+    )
+    (tmp_path / "terminalai.config.local.json").write_text(
+        json.dumps({"max_steps": 99}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(explicit_path))
+
+    config = AppConfig.from_env()
+
+    assert config.max_steps == 3

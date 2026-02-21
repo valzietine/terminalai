@@ -63,9 +63,7 @@ class AppConfig:
 
     @classmethod
     def from_env(cls) -> AppConfig:
-        file_config = _load_file_config(
-            os.getenv("TERMINALAI_CONFIG_FILE", "terminalai.config.json")
-        )
+        file_config = _load_preferred_file_config()
         openai_from_file = file_config.get("openai")
         openai_config = openai_from_file if isinstance(openai_from_file, dict) else {}
         models_from_file = file_config.get("models")
@@ -152,6 +150,27 @@ def _load_file_config(path_value: str) -> dict[str, object]:
     if isinstance(parsed, dict):
         return parsed
     return {}
+
+
+def _load_preferred_file_config() -> dict[str, object]:
+    explicit_path = os.getenv("TERMINALAI_CONFIG_FILE")
+    if explicit_path:
+        return _load_file_config(explicit_path)
+
+    shared_config = _load_file_config("terminalai.config.json")
+    local_override = _load_file_config("terminalai.config.local.json")
+    return _merge_dicts(shared_config, local_override)
+
+
+def _merge_dicts(base: dict[str, object], override: dict[str, object]) -> dict[str, object]:
+    merged: dict[str, object] = dict(base)
+    for key, value in override.items():
+        base_value = merged.get(key)
+        if isinstance(base_value, dict) and isinstance(value, dict):
+            merged[key] = _merge_dicts(base_value, value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _default_reasoning_effort(model: str) -> str | None:

@@ -114,6 +114,20 @@ This section documents the **current** output contract. If the CLI output format
 
 `terminalai` can load defaults from `terminalai.config.json` (or a custom path via `TERMINALAI_CONFIG_FILE`) with detailed OpenAI and per-model settings. You can set the OpenAI API key in either `openai.api_key` (recommended) or top-level `api_key`.
 
+For local machine-specific overrides, create a personal config file named
+`terminalai.config.local.json` (this file is intentionally gitignored). When
+present in the project root, it is loaded automatically and merged on top of
+`terminalai.config.json`.
+
+```bash
+cp terminalai.config.json terminalai.config.local.json
+terminalai "your goal"
+```
+
+Use `terminalai.config.local.json` for machine-specific values (for example,
+API keys and local shell/cwd preferences) while keeping
+`terminalai.config.json` as the shared project baseline.
+
 ```json
 {
   "openai": {
