@@ -48,8 +48,14 @@ class AgentLoop:
         context_events: list[dict[str, object]] = []
         safety_policy_context = self._safety_policy_context()
 
-        for _ in range(self.max_steps):
-            context = [asdict(turn) for turn in turns] + context_events + [safety_policy_context]
+        exhausted_step_budget = True
+        for step_index in range(self.max_steps):
+            step_context = self._step_budget_context(step_index)
+            context = (
+                [asdict(turn) for turn in turns]
+                + context_events
+                + [step_context, safety_policy_context]
+            )
             decision = self.client.next_command(goal=goal, session_context=context)
             if decision.ask_user and decision.user_question:
                 turn = SessionTurn(
@@ -62,10 +68,12 @@ class AgentLoop:
                 turns.append(turn)
                 self._append_log(turn)
                 if not self.request_user_feedback:
+                    exhausted_step_budget = False
                     break
 
                 feedback = self.request_user_feedback(decision.user_question).strip()
                 if not feedback:
+                    exhausted_step_budget = False
                     break
 
                 self._append_context_event(
@@ -94,6 +102,7 @@ class AgentLoop:
                         turns.append(turn)
                         self._append_log(turn)
                         continue
+                exhausted_step_budget = False
                 break
 
             step = AgentStep(goal=goal, proposed_command=decision.command)
@@ -168,6 +177,30 @@ class AgentLoop:
                 command=step.proposed_command,
                 output=output,
                 next_action_hint=decision.notes,
+            )
+            turns.append(turn)
+            self._append_log(turn)
+
+        if exhausted_step_budget and self.max_steps > 0:
+            self._append_context_event(
+                context_events,
+                event_type="step_budget_exhausted",
+                goal=goal,
+                current_step=self.max_steps,
+                max_steps=self.max_steps,
+                steps_remaining=0,
+            )
+            turn = SessionTurn(
+                input=goal,
+                command="",
+                output=(
+                    "Step budget exhausted before the model marked the task complete. "
+                    f"Reached step {self.max_steps}/{self.max_steps}."
+                ),
+                next_action_hint=(
+                    "I reached the maximum number of steps and could not finish. "
+                    "Please continue in a new run or raise max_steps."
+                ),
             )
             turns.append(turn)
             self._append_log(turn)
@@ -261,3 +294,16 @@ class AgentLoop:
         if self.confirm_command_execution(command):
             return True, False
         return False, True
+
+    def _step_budget_context(self, step_index: int) -> dict[str, object]:
+        current_step = step_index + 1
+        return {
+            "type": "step_budget",
+            "current_step": current_step,
+            "max_steps": self.max_steps,
+            "steps_remaining": self.max_steps - current_step,
+            "instructions": (
+                "Plan execution with the remaining step budget in mind and avoid unnecessary"
+                " commands."
+            ),
+        }
