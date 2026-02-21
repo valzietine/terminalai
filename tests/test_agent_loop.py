@@ -270,8 +270,7 @@ def test_agent_loop_prompts_and_skips_destructive_command_when_user_declines(tmp
         shell=shell,
         log_dir=tmp_path,
         max_steps=2,
-        safety_enabled=True,
-        allow_unsafe=False,
+        safety_mode="strict",
         confirm_command_execution=confirm_command_execution,
     )
 
@@ -286,8 +285,7 @@ def test_agent_loop_prompts_and_skips_destructive_command_when_user_declines(tmp
     assert len(command_declined_events) == 1
     assert command_declined_events[0]["command"] == "rm -rf ./tmp"
     assert command_declined_events[0]["reason"] == "user_declined"
-    assert command_declined_events[0]["safety_enabled"] is True
-    assert command_declined_events[0]["allow_unsafe"] is False
+    assert command_declined_events[0]["safety_mode"] == "strict"
 
 
 def test_agent_loop_confirms_and_runs_destructive_command_when_user_accepts(tmp_path) -> None:
@@ -298,8 +296,7 @@ def test_agent_loop_confirms_and_runs_destructive_command_when_user_accepts(tmp_
         shell=shell,
         log_dir=tmp_path,
         max_steps=1,
-        safety_enabled=True,
-        allow_unsafe=False,
+        safety_mode="strict",
         confirm_command_execution=lambda _command: True,
     )
 
@@ -316,8 +313,7 @@ def test_agent_loop_allows_destructive_commands_when_allow_unsafe_enabled(tmp_pa
         shell=shell,
         log_dir=tmp_path,
         max_steps=1,
-        safety_enabled=True,
-        allow_unsafe=True,
+        safety_mode="allow_unsafe",
     )
 
     turns = loop.run("delete temp files")
@@ -325,6 +321,23 @@ def test_agent_loop_allows_destructive_commands_when_allow_unsafe_enabled(tmp_pa
     assert shell.confirmed_calls == [True]
     assert "returncode=0" in turns[0].output
 
+
+
+
+def test_agent_loop_does_not_auto_confirm_when_safety_mode_off(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(
+        client=DestructiveCommandClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=1,
+        safety_mode="off",
+    )
+
+    turns = loop.run("delete temp files")
+
+    assert shell.confirmed_calls == [False]
+    assert "returncode=126" in turns[0].output
 
 class GuardrailBlockedClient:
     def __init__(self) -> None:
@@ -373,8 +386,7 @@ def test_agent_loop_emits_blocked_command_context_event(tmp_path) -> None:
     assert len(blocked_events) == 1
     assert blocked_events[0]["command"] == "echo restricted"
     assert blocked_events[0]["reason"] == "denylist"
-    assert blocked_events[0]["safety_enabled"] is True
-    assert blocked_events[0]["allow_unsafe"] is False
+    assert blocked_events[0]["safety_mode"] == "strict"
 
 
 def test_agent_loop_emits_executed_command_context_event(tmp_path) -> None:
@@ -391,8 +403,7 @@ def test_agent_loop_emits_executed_command_context_event(tmp_path) -> None:
     assert len(executed_events) == 1
     assert executed_events[0]["command"] == "echo hi"
     assert executed_events[0]["returncode"] == 0
-    assert executed_events[0]["safety_enabled"] is True
-    assert executed_events[0]["allow_unsafe"] is False
+    assert executed_events[0]["safety_mode"] == "strict"
 
 
 def test_agent_loop_updates_step_budget_context_each_iteration(tmp_path) -> None:

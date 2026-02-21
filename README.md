@@ -13,11 +13,13 @@ This program enables an LLM from an API like OpenAI to interface with a user's t
 
 TerminalAI enforces shell guardrails by default. Commands matching destructive patterns (for example `rm -rf`, `del /s /q`, and similar) are sent to the shell adapter with `confirmed=false` unless unsafe execution is explicitly enabled.
 
-- `safety_enabled: true` (default): guardrails are active; when a destructive command is proposed, the CLI asks for explicit user confirmation (`Run this command and continue? [y/N]`) before executing.
-- `allow_unsafe: true`: destructive commands are treated as confirmed and can execute.
-- `safety_enabled: false`: safety gating is disabled for destructive command confirmation checks.
-- `TERMINALAI_SAFETY_ENABLED` and `TERMINALAI_ALLOW_UNSAFE` can still override these config defaults when needed.
-- Every command outcome is also fed back to the model as a structured `session_context` event (`command_executed`, `command_blocked`, or `command_declined`) including command text, safety flags, and normalized reason codes for blocked/declined paths.
+- `safety_mode: "strict"` (default): guardrails are active; when a destructive command is proposed, the CLI asks for explicit user confirmation (`Run this command and continue? [y/N]`) before executing.
+- `safety_mode: "allow_unsafe"`: terminalai sets `confirmed=true` for destructive commands, so they are auto-approved by terminalai and can run without an interactive prompt.
+- `safety_mode: "off"` (or `"disabled"`): terminalai does not do safety confirmation or prompting, but it also does **not** auto-approve destructive commands (`confirmed=false`), so the selected shell integration (for example the built-in denylist/allowlist checks and confirmation-required checks in the shell adapter) still decides whether the command runs or is blocked.
+- Practical distinction:
+  - `allow_unsafe` = terminalai actively bypasses its destructive-command confirmation gate.
+  - `off` = terminalai steps out of the way and defers destructive-command handling to shell adapter guardrails (denylist/allowlist/confirmation-required checks).
+- Every command outcome is also fed back to the model as a structured `session_context` event (`command_executed`, `command_blocked`, or `command_declined`) including command text, `safety_mode`, and normalized reason codes for blocked/declined paths.
 
 ## Platforms
 
@@ -155,8 +157,7 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
-- `TERMINALAI_SAFETY_ENABLED`: optional override for destructive-command safety gating (default from config: `safety_enabled`, fallback `true`).
-- `TERMINALAI_ALLOW_UNSAFE`: optional override for unsafe execution policy (default from config: `allow_unsafe`, fallback `false`).
+- `TERMINALAI_SAFETY_MODE`: canonical destructive-command safety mode. Supported values: `strict`, `allow_unsafe`, `off` (alias: `disabled`).
 
 ### JSON config file
 
@@ -195,8 +196,7 @@ or platform defaults at runtime.
   },
   "confirm_before_complete": false,
   "continuation_prompt_enabled": true,
-  "safety_enabled": true,
-  "allow_unsafe": false,
+  "safety_mode": "strict",
   "shell": null,
   "max_steps": 20,
   "cwd": null,

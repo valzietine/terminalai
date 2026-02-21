@@ -20,9 +20,8 @@
   "allow_user_feedback_pause": false,
   "confirm_before_complete": false,
   "continuation_prompt_enabled": true,
-  "safety_enabled": true,
-  "allow_unsafe": false,
   "shell": null,
   "max_steps": 20,
-  "cwd": null
+  "cwd": null,
+  "safety_mode": "strict"
 }

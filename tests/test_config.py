@@ -139,35 +139,45 @@ def test_confirm_before_complete_loads_from_file_and_env(tmp_path, monkeypatch) 
     assert env_config.confirm_before_complete is False
 
 
-def test_safety_toggles_load_from_file_and_env(tmp_path, monkeypatch) -> None:
+def test_safety_mode_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
     config_path.write_text(
         json.dumps(
             {
                 "default_model": "gpt-5.2",
-                "safety_enabled": False,
-                "allow_unsafe": True,
+                "safety_mode": "off",
             }
         ),
         encoding="utf-8",
     )
 
     monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
-    monkeypatch.delenv("TERMINALAI_SAFETY_ENABLED", raising=False)
-    monkeypatch.delenv("TERMINALAI_ALLOW_UNSAFE", raising=False)
+    monkeypatch.delenv("TERMINALAI_SAFETY_MODE", raising=False)
 
     file_config = AppConfig.from_env()
-    assert file_config.safety_enabled is False
-    assert file_config.allow_unsafe is True
+    assert file_config.safety_mode == "off"
 
-    monkeypatch.setenv("TERMINALAI_SAFETY_ENABLED", "true")
-    monkeypatch.setenv("TERMINALAI_ALLOW_UNSAFE", "false")
+    monkeypatch.setenv("TERMINALAI_SAFETY_MODE", "allow_unsafe")
 
     env_config = AppConfig.from_env()
-    assert env_config.safety_enabled is True
-    assert env_config.allow_unsafe is False
+    assert env_config.safety_mode == "allow_unsafe"
 
 
+
+
+
+
+
+def test_safety_mode_defaults_to_strict_without_canonical_keys(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(json.dumps({"default_model": "gpt-5.2"}), encoding="utf-8")
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_SAFETY_MODE", raising=False)
+
+    config = AppConfig.from_env()
+
+    assert config.safety_mode == "strict"
 
 def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
@@ -175,8 +185,7 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
         json.dumps(
             {
                 "default_model": "gpt-5.2",
-                "safety_enabled": "false",
-                "allow_unsafe": "true",
+                "safety_mode": "disabled",
                 "allow_user_feedback_pause": "true",
                 "confirm_before_complete": "false",
                 "continuation_prompt_enabled": "false",
@@ -186,16 +195,14 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
     )
 
     monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
-    monkeypatch.delenv("TERMINALAI_SAFETY_ENABLED", raising=False)
-    monkeypatch.delenv("TERMINALAI_ALLOW_UNSAFE", raising=False)
+    monkeypatch.delenv("TERMINALAI_SAFETY_MODE", raising=False)
     monkeypatch.delenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE", raising=False)
     monkeypatch.delenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE", raising=False)
     monkeypatch.delenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED", raising=False)
 
     config = AppConfig.from_env()
 
-    assert config.safety_enabled is False
-    assert config.allow_unsafe is True
+    assert config.safety_mode == "off"
     assert config.allow_user_feedback_pause is True
     assert config.confirm_before_complete is False
     assert config.continuation_prompt_enabled is False
