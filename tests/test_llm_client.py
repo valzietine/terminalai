@@ -148,6 +148,8 @@ def test_payload_includes_phase_metadata_schema() -> None:
     assert "expected_outcome" in schema["required"]
     assert "verification_command" in schema["required"]
     assert "risk_level" in schema["properties"]
+    assert "risk_level" in schema["required"]
+    assert set(schema["required"]) == set(schema["properties"].keys())
 
 
 def test_to_model_decision_coerces_invalid_phase_metadata() -> None:

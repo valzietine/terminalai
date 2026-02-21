@@ -148,6 +148,7 @@ class LLMClient:
             "phase",
             "expected_outcome",
             "verification_command",
+            "risk_level",
         ]
         if self.allow_user_feedback_pause:
             schema_properties["ask_user"] = {"type": "boolean"}
