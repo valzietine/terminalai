@@ -50,12 +50,17 @@ The MVP intentionally prioritizes direct execution and does not add command gati
 
 ### CLI input
 
-The CLI now accepts only the optional goal argument. Runtime options are configured via `terminalai.config.json` (or environment variable overrides).
+The CLI accepts the optional goal argument and an optional `--cwd` override for
+the starting working directory. If `--cwd` is not provided, `terminalai` uses
+`cwd` from config (or `TERMINALAI_CWD`), and if that is also unset it defaults
+to the directory where you launched the script.
 
 Example:
 
 ```bash
 terminalai "Create a TODO.txt with three tasks"
+
+terminalai --cwd ~/projects/demo "Create a TODO.txt with three tasks"
 ```
 
 ### Understanding runtime output in the terminal

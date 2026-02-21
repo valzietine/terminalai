@@ -35,6 +35,14 @@ def build_runtime_context(shell_name: str, working_directory: str | None) -> str
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="terminalai", description="Terminal AI assistant")
+    parser.add_argument(
+        "--cwd",
+        dest="working_directory",
+        help=(
+            "Override the starting working directory for command execution. "
+            "Takes precedence over config/env cwd values."
+        ),
+    )
     parser.add_argument("goal", nargs="?", help="Goal for the model-driven terminal session")
     return parser
 
@@ -50,15 +58,16 @@ def main() -> int:
         print("No goal provided.")
         return 1
 
+    configured_working_directory = args.working_directory or config.working_directory
     working_directory = (
-        str(Path(config.working_directory).expanduser().resolve())
-        if config.working_directory
+        str(Path(configured_working_directory).expanduser().resolve())
+        if configured_working_directory
         else None
     )
     if working_directory is not None:
         candidate = Path(working_directory)
         if not candidate.exists() or not candidate.is_dir():
-            print(f"Invalid configured cwd directory: {config.working_directory}")
+            print(f"Invalid configured cwd directory: {configured_working_directory}")
             return 1
 
     client = LLMClient(
