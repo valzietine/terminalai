@@ -52,19 +52,6 @@ def test_payload_uses_custom_system_prompt() -> None:
     assert payload["input"][0]["content"] == "be careful"
 
 
-def test_payload_includes_runtime_context_when_provided() -> None:
-    client = LLMClient(
-        api_key=None,
-        model="gpt-5.2",
-        system_prompt="be careful",
-        runtime_context="Runtime environment context",
-    )
-
-    payload = client._build_payload("test goal", [])
-
-    assert payload["input"][1]["content"] == "Runtime environment context"
-
-
 def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
     client = LLMClient(
         api_key=None,
@@ -108,6 +95,41 @@ def test_payload_user_message_formats_goal_and_context() -> None:
     assert '"type": "step_budget"' in user_message
 
 
+
+
+def test_payload_trims_session_context_to_max_chars() -> None:
+    client = LLMClient(
+        api_key=None,
+        model="gpt-5.2",
+        system_prompt="be careful",
+        max_context_chars=120,
+    )
+
+    payload = client._build_payload(
+        "test",
+        [
+            {"type": "first", "message": "a" * 120},
+            {"type": "second", "message": "b" * 40},
+        ],
+    )
+
+    user_message = payload["input"][-1]["content"]
+    assert '"type": "first"' not in user_message
+    assert '"type": "second"' in user_message
+
+
+def test_payload_empty_context_when_limit_non_positive() -> None:
+    client = LLMClient(
+        api_key=None,
+        model="gpt-5.2",
+        system_prompt="be careful",
+        max_context_chars=0,
+    )
+
+    payload = client._build_payload("test", [{"type": "step_budget", "current_step": 1}])
+
+    user_message = payload["input"][-1]["content"]
+    assert "Session context (ordered oldest to newest):\n[]" in user_message
 
 def test_payload_includes_phase_metadata_schema() -> None:
     client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")

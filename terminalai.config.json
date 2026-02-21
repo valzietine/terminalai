@@ -24,6 +24,7 @@
   "readable_cli_output": true,
   "shell": null,
   "max_steps": 20,
+  "max_context_chars": 12000,
   "cwd": null,
   "safety_mode": "strict"
 }

@@ -406,3 +406,22 @@ def test_shell_falls_back_to_platform_default_when_unset(tmp_path, monkeypatch) 
 
     posix_config = AppConfig.from_env()
     assert posix_config.shell == "bash"
+
+
+def test_max_context_chars_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"default_model": "gpt-5.2", "max_context_chars": 9000}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_MAX_CONTEXT_CHARS", raising=False)
+
+    file_config = AppConfig.from_env()
+    assert file_config.max_context_chars == 9000
+
+    monkeypatch.setenv("TERMINALAI_MAX_CONTEXT_CHARS", "2048")
+
+    env_config = AppConfig.from_env()
+    assert env_config.max_context_chars == 2048
