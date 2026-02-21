@@ -40,10 +40,11 @@ def test_cmd_adapter_runs_command(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
         assert args[0] == ["cmd.exe", "/d", "/s", "/c", "echo hello"]
         assert kwargs["timeout"] == 10
+        assert kwargs["cwd"] == "C:/work"
         return SimpleNamespace(returncode=0, stdout=b"h\xe9llo", stderr=b"")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    result = CmdAdapter().execute("echo hello", timeout=10, confirmed=True)
+    result = CmdAdapter().execute("echo hello", cwd="C:/work", timeout=10, confirmed=True)
     assert result.returncode == 0
     assert result.stdout == "héllo"
 
@@ -78,10 +79,15 @@ def test_powershell_adapter_command_formatting(monkeypatch: pytest.MonkeyPatch) 
             "-Command",
             "Write-Output hi",
         ]
+        assert kwargs["cwd"] == "C:/repo"
         return SimpleNamespace(returncode=0, stdout=b"hi", stderr=b"")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    result = PowerShellAdapter(executable="pwsh").execute("Write-Output hi", confirmed=True)
+    result = PowerShellAdapter(executable="pwsh").execute(
+        "Write-Output hi",
+        cwd="C:/repo",
+        confirmed=True,
+    )
     assert result.returncode == 0
 
 

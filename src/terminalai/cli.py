@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 from .agent.loop import AgentLoop
 from .config import AppConfig
@@ -29,6 +30,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=20,
         help="Maximum model-execution iterations",
     )
+    parser.add_argument(
+        "--cwd",
+        help="Starting working directory for executed commands (defaults to current directory)",
+    )
     return parser
 
 
@@ -43,6 +48,13 @@ def main() -> int:
         print("No goal provided.")
         return 1
 
+    working_directory = str(Path(args.cwd).expanduser().resolve()) if args.cwd else None
+    if working_directory is not None:
+        candidate = Path(working_directory)
+        if not candidate.exists() or not candidate.is_dir():
+            print(f"Invalid --cwd directory: {args.cwd}")
+            return 1
+
     selected_model = args.model or config.model
     client = LLMClient(
         api_key=config.api_key,
@@ -50,7 +62,13 @@ def main() -> int:
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,
     )
-    loop = AgentLoop(client=client, shell=adapter, log_dir=config.log_dir, max_steps=args.max_steps)
+    loop = AgentLoop(
+        client=client,
+        shell=adapter,
+        log_dir=config.log_dir,
+        max_steps=args.max_steps,
+        working_directory=working_directory,
+    )
 
     turns = loop.run(goal)
     if not turns:

@@ -22,11 +22,13 @@ class AgentLoop:
         shell: ShellAdapter,
         log_dir: str | Path,
         max_steps: int = 20,
+        working_directory: str | None = None,
     ) -> None:
         self.client = client
         self.shell = shell
         self.log_dir = Path(log_dir)
         self.max_steps = max_steps
+        self.working_directory = working_directory
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
@@ -38,7 +40,11 @@ class AgentLoop:
                 break
 
             step = AgentStep(goal=goal, proposed_command=decision.command)
-            command_result = self.shell.execute(step.proposed_command, confirmed=True)
+            command_result = self.shell.execute(
+                step.proposed_command,
+                cwd=self.working_directory,
+                confirmed=True,
+            )
             result = ExecutionResult(
                 stdout=command_result.stdout,
                 stderr=command_result.stderr,

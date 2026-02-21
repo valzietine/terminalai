@@ -73,6 +73,7 @@ class ShellAdapter(abc.ABC):
         self,
         command: str,
         *,
+        cwd: str | None = None,
         timeout: float | None = None,
         dry_run: bool = False,
         confirmed: bool = False,
