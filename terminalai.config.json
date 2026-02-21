@@ -20,6 +20,7 @@
   "allow_user_feedback_pause": false,
   "confirm_before_complete": false,
   "continuation_prompt_enabled": true,
+  "auto_progress_turns": true,
   "shell": null,
   "max_steps": 20,
   "cwd": null,

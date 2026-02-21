@@ -21,6 +21,7 @@ def _fake_config() -> AppConfig:
         allow_user_feedback_pause=False,
         confirm_before_complete=False,
         continuation_prompt_enabled=True,
+        auto_progress_turns=True,
         shell="powershell",
         max_steps=20,
         working_directory=None,
@@ -100,6 +101,7 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
     assert captured["working_directory"] == str(tmp_path.resolve())
     assert captured["safety_mode"] == "strict"
     assert captured["continuation_prompt_enabled"] is True
+    assert captured["auto_progress_turns"] is True
 
 
 def test_main_cwd_cli_override_takes_precedence(
@@ -208,3 +210,12 @@ def test_confirm_command_execution_prompts_and_accepts_yes(monkeypatch: pytest.M
     monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
 
     assert cli._confirm_command_execution("rm -rf ./tmp") is True
+
+
+def test_request_turn_progress_allows_quit_and_instruction(monkeypatch: pytest.MonkeyPatch) -> None:
+    answers = iter(["", "check only src/", "q"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    assert cli._request_turn_progress(1) == (True, None)
+    assert cli._request_turn_progress(2) == (True, "check only src/")
+    assert cli._request_turn_progress(3) == (False, None)

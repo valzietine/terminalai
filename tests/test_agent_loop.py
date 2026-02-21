@@ -505,3 +505,52 @@ def test_agent_loop_can_disable_continuation_prompt(tmp_path) -> None:
 
     assert turns[0].next_action_hint == "continue"
     assert turns[0].overarching_goal_complete is False
+
+
+def test_agent_loop_pauses_between_turns_when_auto_progress_disabled(tmp_path) -> None:
+    shell = FakeShell()
+    client = FakeClient()
+    prompts: list[int] = []
+
+    def request_turn_progress(step_number: int) -> tuple[bool, str | None]:
+        prompts.append(step_number)
+        if step_number == 1:
+            return True, "Only inspect top-level files first"
+        return True, None
+
+    loop = AgentLoop(
+        client=client,
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=2,
+        auto_progress_turns=False,
+        request_turn_progress=request_turn_progress,
+    )
+
+    turns = loop.run("list files")
+
+    assert len(turns) == 1
+    assert prompts == [1, 2]
+    turn_instruction_events = [
+        event for event in client.contexts[0] if event.get("type") == "user_turn_instruction"
+    ]
+    assert len(turn_instruction_events) == 1
+    assert turn_instruction_events[0]["instruction"] == "Only inspect top-level files first"
+
+
+def test_agent_loop_stops_when_user_declines_to_progress(tmp_path) -> None:
+    shell = FakeShell()
+
+    loop = AgentLoop(
+        client=FakeClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=2,
+        auto_progress_turns=False,
+        request_turn_progress=lambda _step: (False, None),
+    )
+
+    turns = loop.run("list files")
+
+    assert turns == []
+    assert shell.commands == []

@@ -102,10 +102,12 @@ def main() -> int:
         working_directory=working_directory,
         confirm_before_complete=config.confirm_before_complete,
         continuation_prompt_enabled=config.continuation_prompt_enabled,
+        auto_progress_turns=config.auto_progress_turns,
         safety_mode=config.safety_mode,
         confirm_command_execution=_confirm_command_execution,
         confirm_completion=_confirm_completion,
         request_user_feedback=_request_user_feedback,
+        request_turn_progress=_request_turn_progress,
     )
 
     turns = loop.run(goal)
@@ -127,6 +129,17 @@ def main() -> int:
     LOGGER.debug("shell_adapter_selected", extra={"shell": adapter.name})
     return 0
 
+
+
+def _request_turn_progress(step_number: int) -> tuple[bool, str | None]:
+    message = (
+        f"Step {step_number}: press Enter to run the next model turn, "
+        "type your instruction to guide this turn, or enter q to stop: "
+    )
+    response = input(message).strip()
+    if response.lower() in {"q", "quit", "exit"}:
+        return False, None
+    return True, response or None
 
 def _confirm_command_execution(command: str) -> bool:
     print("Destructive command proposed by model:")

@@ -68,6 +68,7 @@ class AppConfig:
     allow_user_feedback_pause: bool
     confirm_before_complete: bool
     continuation_prompt_enabled: bool
+    auto_progress_turns: bool
     shell: str
     max_steps: int
     working_directory: str | None
@@ -135,6 +136,13 @@ class AppConfig:
                 os.getenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED"),
                 default=_to_bool_from_object(
                     file_config.get("continuation_prompt_enabled"),
+                    default=True,
+                ),
+            ),
+            auto_progress_turns=_to_bool(
+                os.getenv("TERMINALAI_AUTO_PROGRESS_TURNS"),
+                default=_to_bool_from_object(
+                    file_config.get("auto_progress_turns"),
                     default=True,
                 ),
             ),

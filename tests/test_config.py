@@ -32,6 +32,7 @@ def test_app_config_loads_openai_and_model_reasoning_from_file(tmp_path, monkeyp
     assert config.allow_user_feedback_pause is False
     assert config.confirm_before_complete is False
     assert config.continuation_prompt_enabled is True
+    assert config.auto_progress_turns is True
 
 
 def test_env_overrides_reasoning_effort(tmp_path, monkeypatch) -> None:
@@ -189,6 +190,7 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
                 "allow_user_feedback_pause": "true",
                 "confirm_before_complete": "false",
                 "continuation_prompt_enabled": "false",
+                "auto_progress_turns": "false",
             }
         ),
         encoding="utf-8",
@@ -199,6 +201,7 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
     monkeypatch.delenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE", raising=False)
     monkeypatch.delenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE", raising=False)
     monkeypatch.delenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED", raising=False)
+    monkeypatch.delenv("TERMINALAI_AUTO_PROGRESS_TURNS", raising=False)
 
     config = AppConfig.from_env()
 
@@ -206,6 +209,7 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
     assert config.allow_user_feedback_pause is True
     assert config.confirm_before_complete is False
     assert config.continuation_prompt_enabled is False
+    assert config.auto_progress_turns is False
 
 
 def test_continuation_prompt_setting_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
@@ -217,6 +221,7 @@ def test_continuation_prompt_setting_loads_from_file_and_env(tmp_path, monkeypat
 
     monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
     monkeypatch.delenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED", raising=False)
+    monkeypatch.delenv("TERMINALAI_AUTO_PROGRESS_TURNS", raising=False)
 
     file_config = AppConfig.from_env()
     assert file_config.continuation_prompt_enabled is False
@@ -225,6 +230,26 @@ def test_continuation_prompt_setting_loads_from_file_and_env(tmp_path, monkeypat
 
     env_config = AppConfig.from_env()
     assert env_config.continuation_prompt_enabled is True
+
+
+
+def test_auto_progress_turns_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"auto_progress_turns": False, "default_model": "gpt-5.2"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_AUTO_PROGRESS_TURNS", raising=False)
+
+    file_config = AppConfig.from_env()
+    assert file_config.auto_progress_turns is False
+
+    monkeypatch.setenv("TERMINALAI_AUTO_PROGRESS_TURNS", "true")
+
+    env_config = AppConfig.from_env()
+    assert env_config.auto_progress_turns is True
 
 
 def test_runtime_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
