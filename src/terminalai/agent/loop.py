@@ -60,8 +60,9 @@ class AgentLoop:
         self.auto_progress_turns = auto_progress_turns
         self.request_turn_progress = request_turn_progress
 
-    def run(self, goal: str) -> list[SessionTurn]:
+    def run(self, goal: str, prior_turns: list[SessionTurn] | None = None) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
+        historical_turns = list(prior_turns) if prior_turns else []
         context_events: list[ContextEvent] = []
         safety_policy_context = self._safety_policy_context()
 
@@ -85,7 +86,7 @@ class AgentLoop:
 
             step_context = self._step_budget_context(step_index)
             context = (
-                [self._serialize_turn(turn) for turn in turns]
+                [self._serialize_turn(turn) for turn in [*historical_turns, *turns]]
                 + [dict(event) for event in context_events]
                 + [step_context, safety_policy_context]
             )

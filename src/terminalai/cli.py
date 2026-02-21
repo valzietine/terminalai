@@ -9,7 +9,7 @@ import platform
 from pathlib import Path
 from typing import cast
 
-from .agent.loop import AgentLoop
+from .agent.loop import CONTINUATION_PROMPT_TEXT, AgentLoop
 from .agent.models import SessionTurn
 from .config import AppConfig, SafetyMode
 from .llm.client import LLMClient
@@ -111,16 +111,39 @@ def main() -> int:
         request_turn_progress=_request_turn_progress,
     )
 
-    turns = loop.run(goal)
-    if not turns:
-        print("Session ended without command execution.")
-        return 0
+    session_turns: list[SessionTurn] = []
+    current_goal = goal
+    turn_offset = 0
 
-    for idx, turn in enumerate(turns, start=1):
-        if config.readable_cli_output:
-            print(_render_turn(turn, idx))
-            continue
-        _print_turn_legacy(turn, idx)
+    while True:
+        turns = loop.run(current_goal, prior_turns=session_turns)
+        if not turns and not session_turns:
+            print("Session ended without command execution.")
+            return 0
+
+        for idx, turn in enumerate(turns, start=turn_offset + 1):
+            if config.readable_cli_output:
+                print(_render_turn(turn, idx))
+                continue
+            _print_turn_legacy(turn, idx)
+
+        if not turns:
+            break
+
+        session_turns.extend(turns)
+        turn_offset = len(session_turns)
+        final_turn = turns[-1]
+        if not _should_prompt_for_continuation(final_turn):
+            break
+
+        should_continue = _request_continuation()
+        if not should_continue:
+            break
+
+        current_goal = _request_new_instruction()
+        if not current_goal:
+            print("No additional instruction provided. Ending session.")
+            break
 
     LOGGER.debug("shell_adapter_selected", extra={"shell": adapter.name})
     return 0
@@ -135,6 +158,19 @@ def _request_turn_progress(step_number: int) -> tuple[bool, str | None]:
     if response.lower() in {"q", "quit", "exit"}:
         return False, None
     return True, response or None
+
+
+def _should_prompt_for_continuation(turn: SessionTurn) -> bool:
+    return turn.overarching_goal_complete and turn.continuation_prompt_added
+
+
+def _request_continuation() -> bool:
+    response = input(f"{CONTINUATION_PROMPT_TEXT} [y/N]: ").strip().lower()
+    return response in {"y", "yes"}
+
+
+def _request_new_instruction() -> str:
+    return input("New instruction: ").strip()
 
 def _confirm_command_execution(command: str) -> bool:
     print("\n=== DESTRUCTIVE COMMAND CONFIRMATION ===")

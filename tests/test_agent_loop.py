@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 
 from terminalai.agent.loop import CONTINUATION_PROMPT_TEXT, AgentLoop
+from terminalai.agent.models import SessionTurn
 from terminalai.llm.client import ModelDecision
 
 
@@ -731,3 +732,35 @@ def test_agent_loop_logs_phase_metadata(tmp_path) -> None:
     assert payload["expected_outcome"] is None
     assert payload["verification_command"] is None
     assert payload["risk_level"] is None
+
+def test_agent_loop_includes_prior_turns_in_session_context(tmp_path) -> None:
+    shell = FakeShell()
+
+    class PriorAwareClient:
+        def next_command(
+            self, goal: str, session_context: list[dict[str, object]]
+        ) -> ModelDecision:
+            assert goal == "second goal"
+            commands = [
+                entry.get("command")
+                for entry in session_context
+                if isinstance(entry, dict) and isinstance(entry.get("command"), str)
+            ]
+            assert "echo from first goal" in commands
+            return ModelDecision(command=None, notes="done", complete=True)
+
+    loop = AgentLoop(client=PriorAwareClient(), shell=shell, log_dir=tmp_path, max_steps=1)
+    prior_turns = [
+        SessionTurn(
+            input="first goal",
+            command="echo from first goal",
+            output="ok",
+            next_action_hint="done",
+            turn_complete=True,
+        )
+    ]
+
+    turns = loop.run("second goal", prior_turns=prior_turns)
+
+    assert len(turns) == 1
+    assert turns[0].turn_complete is True
