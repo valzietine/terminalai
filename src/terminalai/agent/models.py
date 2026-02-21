@@ -1,0 +1,33 @@
+"""Data models used by the minimal agent loop."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(slots=True)
+class AgentStep:
+    """A model-proposed command for the current goal."""
+
+    goal: str
+    proposed_command: str
+
+
+@dataclass(slots=True)
+class ExecutionResult:
+    """Normalized shell execution output returned to the model."""
+
+    stdout: str
+    stderr: str
+    returncode: int
+    duration: float
+
+
+@dataclass(slots=True)
+class SessionTurn:
+    """Captured request/response data for a single orchestration turn."""
+
+    input: str
+    command: str
+    output: str
+    next_action_hint: str | None = None
