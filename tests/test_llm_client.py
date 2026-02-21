@@ -1,3 +1,4 @@
+import io
 from urllib.error import HTTPError
 
 from terminalai.llm.client import LLMClient
@@ -249,3 +250,27 @@ def test_next_command_returns_safe_decision_when_missing_output_text(monkeypatch
     assert decision.command is None
     assert decision.complete is True
     assert decision.notes == "No structured output returned"
+
+
+def test_next_command_http_error_includes_response_excerpt(monkeypatch) -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    class FakeHTTPError(HTTPError):
+        def __init__(self):
+            super().__init__(
+                url="https://example.com",
+                code=400,
+                msg="Bad Request",
+                hdrs=None,
+                fp=io.BytesIO(b'{"error":{"message":"invalid schema"}}'),
+            )
+
+    def fake_urlopen(*_args, **_kwargs):
+        raise FakeHTTPError()
+
+    monkeypatch.setattr("terminalai.llm.client.request.urlopen", fake_urlopen)
+
+    decision = client.next_command("test", [])
+
+    assert "HTTP 400" in (decision.notes or "")
+    assert "invalid schema" in (decision.notes or "")

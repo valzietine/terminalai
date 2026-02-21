@@ -57,6 +57,18 @@ def main() -> int:
             return 1
         working_directory = str(resolved_working_directory)
 
+    LOGGER.info(
+        "terminalai_session_start",
+        extra={
+            "model": config.model,
+            "api_url": config.api_url,
+            "shell": adapter.name,
+            "working_directory": working_directory,
+            "max_steps": config.max_steps,
+            "safety_mode": config.safety_mode,
+        },
+    )
+
     client = LLMClient(
         api_key=config.api_key,
         model=config.model,

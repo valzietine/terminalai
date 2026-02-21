@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import cast
 from urllib import request
@@ -12,6 +13,7 @@ from terminalai.agent.models import DecisionPhase, RiskLevel
 
 VALID_PHASES: set[DecisionPhase] = {"analysis", "mutation", "verification", "completion"}
 VALID_RISK_LEVELS: set[RiskLevel] = {"low", "medium", "high"}
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -60,17 +62,59 @@ class LLMClient:
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
+        LOGGER.debug(
+            "llm_request_prepared",
+            extra={
+                "api_url": self.api_url,
+                "model": self.model,
+                "payload_bytes": len(body),
+                "context_events": len(session_context),
+                "reasoning_effort": self.reasoning_effort,
+                "allow_user_feedback_pause": self.allow_user_feedback_pause,
+            },
+        )
+
         req = request.Request(self.api_url, data=body, headers=headers, method="POST")
         try:
             with request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
                 raw_response = json.loads(resp.read().decode("utf-8"))
         except HTTPError as exc:
+            body_excerpt = self._read_error_body_excerpt(exc)
+            LOGGER.error(
+                "llm_request_http_error",
+                extra={
+                    "api_url": self.api_url,
+                    "model": self.model,
+                    "http_status": exc.code,
+                    "reason": exc.reason,
+                    "response_excerpt": body_excerpt,
+                },
+            )
+            details = f"Model request failed with HTTP {exc.code}: {exc.reason}"
+            if body_excerpt:
+                details = f"{details}. Response body: {body_excerpt}"
             return self._safe_failure_decision(
-                f"Model request failed with HTTP {exc.code}: {exc.reason}"
+                details
             )
         except URLError as exc:
+            LOGGER.error(
+                "llm_request_transport_error",
+                extra={
+                    "api_url": self.api_url,
+                    "model": self.model,
+                    "reason": str(exc.reason),
+                },
+            )
             return self._safe_failure_decision(f"Model request transport error: {exc.reason}")
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            LOGGER.error(
+                "llm_response_parse_error",
+                extra={
+                    "api_url": self.api_url,
+                    "model": self.model,
+                    "error": str(exc),
+                },
+            )
             return self._safe_failure_decision(f"Model response parsing error: {exc}")
 
         raw = self._coerce_object_dict(raw_response)
@@ -233,6 +277,23 @@ class LLMClient:
     @staticmethod
     def _safe_failure_decision(notes: str) -> ModelDecision:
         return ModelDecision(command=None, notes=notes, complete=False)
+
+    @staticmethod
+    def _read_error_body_excerpt(exc: HTTPError, *, max_chars: int = 500) -> str | None:
+        if exc.fp is None:
+            return None
+        try:
+            raw = exc.read()
+        except OSError:
+            return None
+
+        if not raw:
+            return None
+
+        excerpt = raw.decode("utf-8", errors="replace").replace("\n", " ").strip()
+        if len(excerpt) > max_chars:
+            return f"{excerpt[:max_chars]}..."
+        return excerpt
 
     @staticmethod
     def _to_model_decision(parsed: dict[str, object]) -> ModelDecision:
