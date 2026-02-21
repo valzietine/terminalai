@@ -66,7 +66,6 @@ class AppConfig:
     log_dir: str
     system_prompt: str
     allow_user_feedback_pause: bool
-    confirm_before_complete: bool
     continuation_prompt_enabled: bool
     auto_progress_turns: bool
     readable_cli_output: bool
@@ -124,13 +123,6 @@ class AppConfig:
                 os.getenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE"),
                 default=_to_bool_from_object(
                     file_config.get("allow_user_feedback_pause"),
-                    default=False,
-                ),
-            ),
-            confirm_before_complete=_to_bool(
-                os.getenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE"),
-                default=_to_bool_from_object(
-                    file_config.get("confirm_before_complete"),
                     default=False,
                 ),
             ),

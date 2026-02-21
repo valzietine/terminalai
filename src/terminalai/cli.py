@@ -84,12 +84,10 @@ def main() -> int:
         log_dir=config.log_dir,
         max_steps=config.max_steps,
         working_directory=working_directory,
-        confirm_before_complete=config.confirm_before_complete,
         continuation_prompt_enabled=config.continuation_prompt_enabled,
         auto_progress_turns=config.auto_progress_turns,
         safety_mode=config.safety_mode,
         confirm_command_execution=_confirm_command_execution,
-        confirm_completion=_confirm_completion,
         request_user_feedback=_request_user_feedback,
         request_turn_progress=_request_turn_progress,
     )
@@ -172,20 +170,6 @@ def _confirm_command_execution(command: str) -> bool:
     print("=======================================")
     choice = input("Run this destructive command and continue? [y/N]: ").strip().lower()
     return choice in {"y", "yes"}
-
-
-def _confirm_completion(model_notes: str | None) -> tuple[bool, str | None]:
-    if model_notes:
-        print(f"model completion note: {model_notes}")
-
-    choice = input("Model marked the task complete. End session? [Y/n]: ").strip().lower()
-    if choice in {"", "y", "yes"}:
-        return True, None
-
-    follow_up = input(
-        "What should happen next? (objective changes, debrief questions, etc.): "
-    ).strip()
-    return False, follow_up
 
 
 def _request_user_feedback(question: str) -> str:

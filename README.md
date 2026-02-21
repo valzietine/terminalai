@@ -162,7 +162,6 @@ At startup, `terminalai` does not preload repository files (such as `README.md`)
 - `TERMINALAI_LOG_DIR`: directory for session logs (default: `logs`).
 - `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
 - `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
-- `TERMINALAI_CONFIRM_BEFORE_COMPLETE`: when true, asks the user to confirm before ending after the model marks the task complete. If the user declines, the CLI captures follow-up objectives/questions and continues the run with that feedback.
 - `TERMINALAI_CONTINUATION_PROMPT_ENABLED`: enables/disables the post-completion continuation question appended after the overarching goal is complete (default: `true`).
 - `TERMINALAI_AUTO_PROGRESS_TURNS`: when `true` (default), model turns run continuously; when `false`, the CLI pauses before each turn and waits for Enter/instructions.
 - `TERMINALAI_READABLE_CLI_OUTPUT`: when `true` (default), print structured turn sections (`[command]`, `[output]`, `[hint]/[question]`); when `false`, use legacy plain output.
@@ -207,7 +206,6 @@ or platform defaults at runtime.
       "reasoning_effort": "medium"
     }
   },
-  "confirm_before_complete": false,
   "continuation_prompt_enabled": true,
   "auto_progress_turns": true,
   "readable_cli_output": true,
