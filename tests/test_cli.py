@@ -244,6 +244,49 @@ def test_render_turn_trims_trailing_output_whitespace() -> None:
     assert not rendered.endswith("\n")
 
 
+def test_render_turn_hides_continuation_prompt_hint_text() -> None:
+    rendered = cli._render_turn(
+        SessionTurn(
+            input="goal",
+            command="",
+            output="",
+            next_action_hint=(
+                "Model request failed with HTTP 400: Bad Request\n\n"
+                f"{cli.CONTINUATION_PROMPT_TEXT}"
+            ),
+            turn_complete=True,
+            overarching_goal_complete=True,
+            continuation_prompt_added=True,
+        ),
+        1,
+    )
+
+    assert "Model request failed with HTTP 400" in rendered
+    assert cli.CONTINUATION_PROMPT_TEXT not in rendered
+
+
+def test_print_turn_legacy_hides_continuation_prompt_hint_text(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cli._print_turn_legacy(
+        SessionTurn(
+            input="goal",
+            command="",
+            output="",
+            next_action_hint=(
+                "Model request failed with HTTP 400: Bad Request\n\n"
+                f"{cli.CONTINUATION_PROMPT_TEXT}"
+            ),
+            continuation_prompt_added=True,
+        ),
+        1,
+    )
+
+    out = capsys.readouterr().out
+    assert "Model request failed with HTTP 400" in out
+    assert cli.CONTINUATION_PROMPT_TEXT not in out
+
+
 def test_main_uses_legacy_output_when_readable_cli_disabled(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

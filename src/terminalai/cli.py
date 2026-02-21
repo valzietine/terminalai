@@ -172,6 +172,17 @@ def _request_continuation() -> bool:
 def _request_new_instruction() -> str:
     return input("New instruction: ").strip()
 
+
+def _display_hint(turn: SessionTurn) -> str | None:
+    hint = turn.next_action_hint
+    if not hint:
+        return None
+    if not turn.continuation_prompt_added:
+        return hint
+
+    sanitized_hint = hint.replace(CONTINUATION_PROMPT_TEXT, "").strip()
+    return sanitized_hint or None
+
 def _confirm_command_execution(command: str) -> bool:
     print("\n=== DESTRUCTIVE COMMAND CONFIRMATION ===")
     print(f"Command: {command}")
@@ -227,9 +238,12 @@ def _render_turn(turn: SessionTurn, idx: int) -> str:
     if turn.awaiting_user_feedback:
         lines.append("[question]")
         lines.append(turn.next_action_hint or "(no question provided)")
-    elif turn.next_action_hint:
+    else:
+        display_hint = _display_hint(turn)
+        if not display_hint:
+            return "\n".join(lines)
         lines.append("[hint]")
-        lines.append(turn.next_action_hint)
+        lines.append(display_hint)
 
     return "\n".join(lines)
 
@@ -243,8 +257,9 @@ def _print_turn_legacy(turn: SessionTurn, idx: int) -> None:
 
     print(f"[{idx}] $ {turn.command}")
     print(turn.output)
-    if turn.next_action_hint:
-        print(f"hint: {turn.next_action_hint}")
+    display_hint = _display_hint(turn)
+    if display_hint:
+        print(f"hint: {display_hint}")
 
 
 if __name__ == "__main__":

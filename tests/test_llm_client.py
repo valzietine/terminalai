@@ -181,7 +181,7 @@ def test_next_command_returns_safe_decision_on_http_error(monkeypatch) -> None:
     decision = client.next_command("test", [])
 
     assert decision.command is None
-    assert decision.complete is True
+    assert decision.complete is False
     assert "HTTP 503" in (decision.notes or "")
 
 
@@ -203,7 +203,7 @@ def test_next_command_returns_safe_decision_on_invalid_json_response(monkeypatch
     decision = client.next_command("test", [])
 
     assert decision.command is None
-    assert decision.complete is True
+    assert decision.complete is False
     assert "parsing error" in (decision.notes or "")
 
 
