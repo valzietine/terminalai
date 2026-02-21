@@ -19,7 +19,6 @@ def _fake_config() -> AppConfig:
         log_dir="logs",
         system_prompt="prompt",
         allow_user_feedback_pause=False,
-        confirm_before_complete=False,
         continuation_prompt_enabled=True,
         auto_progress_turns=True,
         readable_cli_output=True,

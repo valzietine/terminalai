@@ -30,7 +30,6 @@ def test_app_config_loads_openai_and_model_reasoning_from_file(tmp_path, monkeyp
     assert config.reasoning_effort == "medium"
     assert config.log_dir == "test-logs"
     assert config.allow_user_feedback_pause is False
-    assert config.confirm_before_complete is False
     assert config.continuation_prompt_enabled is True
     assert config.auto_progress_turns is True
     assert config.readable_cli_output is True
@@ -119,28 +118,6 @@ def test_allow_user_feedback_pause_loads_from_file_and_env(tmp_path, monkeypatch
     env_config = AppConfig.from_env()
     assert env_config.allow_user_feedback_pause is False
 
-
-
-
-def test_confirm_before_complete_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
-    config_path = tmp_path / "terminalai.config.json"
-    config_path.write_text(
-        json.dumps({"confirm_before_complete": True, "default_model": "gpt-5.2"}),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
-    monkeypatch.delenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE", raising=False)
-
-    file_config = AppConfig.from_env()
-    assert file_config.confirm_before_complete is True
-
-    monkeypatch.setenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE", "false")
-
-    env_config = AppConfig.from_env()
-    assert env_config.confirm_before_complete is False
-
-
 def test_safety_mode_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
     config_path.write_text(
@@ -189,7 +166,6 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
                 "default_model": "gpt-5.2",
                 "safety_mode": "disabled",
                 "allow_user_feedback_pause": "true",
-                "confirm_before_complete": "false",
                 "continuation_prompt_enabled": "false",
                 "auto_progress_turns": "false",
                 "readable_cli_output": "false",
@@ -201,7 +177,6 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
     monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
     monkeypatch.delenv("TERMINALAI_SAFETY_MODE", raising=False)
     monkeypatch.delenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE", raising=False)
-    monkeypatch.delenv("TERMINALAI_CONFIRM_BEFORE_COMPLETE", raising=False)
     monkeypatch.delenv("TERMINALAI_CONTINUATION_PROMPT_ENABLED", raising=False)
     monkeypatch.delenv("TERMINALAI_AUTO_PROGRESS_TURNS", raising=False)
     monkeypatch.delenv("TERMINALAI_READABLE_CLI_OUTPUT", raising=False)
@@ -210,7 +185,6 @@ def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> No
 
     assert config.safety_mode == "off"
     assert config.allow_user_feedback_pause is True
-    assert config.confirm_before_complete is False
     assert config.continuation_prompt_enabled is False
     assert config.auto_progress_turns is False
     assert config.readable_cli_output is False

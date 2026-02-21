@@ -17,7 +17,6 @@ PHASE_MUTATION = "mutation"
 PHASE_VERIFICATION = "verification"
 ContextEvent = dict[str, ContextEventField]
 ConfirmCommandExecution = Callable[[str], bool]
-ConfirmCompletion = Callable[[str | None], tuple[bool, str | None]]
 RequestUserFeedback = Callable[[str], str]
 RequestTurnProgress = Callable[[int], tuple[bool, str | None]]
 
@@ -37,10 +36,8 @@ class AgentLoop:
         log_dir: str | Path,
         max_steps: int = 20,
         working_directory: str | None = None,
-        confirm_before_complete: bool = False,
         safety_mode: SafetyMode = "strict",
         confirm_command_execution: ConfirmCommandExecution | None = None,
-        confirm_completion: ConfirmCompletion | None = None,
         request_user_feedback: RequestUserFeedback | None = None,
         continuation_prompt_enabled: bool = True,
         auto_progress_turns: bool = True,
@@ -51,10 +48,8 @@ class AgentLoop:
         self.log_dir = Path(log_dir)
         self.max_steps = max_steps
         self.working_directory = working_directory
-        self.confirm_before_complete = confirm_before_complete
         self.safety_mode = safety_mode
         self.confirm_command_execution = confirm_command_execution
-        self.confirm_completion = confirm_completion
         self.request_user_feedback = request_user_feedback
         self.continuation_prompt_enabled = continuation_prompt_enabled
         self.auto_progress_turns = auto_progress_turns
@@ -161,35 +156,6 @@ class AgentLoop:
                         complete_signal=decision.complete,
                     )
                     continue
-                if self.confirm_before_complete and self.confirm_completion:
-                    should_end, completion_feedback = self.confirm_completion(decision.notes)
-                    if not should_end:
-                        feedback_text = (
-                            completion_feedback.strip()
-                            if isinstance(completion_feedback, str)
-                            and completion_feedback.strip()
-                            else "User asked to continue instead of ending."
-                        )
-                        turn = SessionTurn(
-                            input=goal,
-                            command="",
-                            output="",
-                            next_action_hint=f"User declined completion: {feedback_text}",
-                            turn_complete=True,
-                            subtask_complete=True,
-                            phase=decision.phase,
-                            expected_outcome=decision.expected_outcome,
-                            verification_command=decision.verification_command,
-                            risk_level=decision.risk_level,
-                        )
-                        turns.append(turn)
-                        self._append_log(
-                            turn,
-                            goal=goal,
-                            step_index=step_index + 1,
-                            complete_signal=decision.complete,
-                        )
-                        continue
                 completion_hint = (
                     decision.notes.strip()
                     if isinstance(decision.notes, str) and decision.notes.strip()
