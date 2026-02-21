@@ -212,13 +212,34 @@ def test_agent_loop_completion_log_metadata_matches_terminal_turn(tmp_path) -> N
         if line.strip()
     ]
     assert payloads[-1]["command"] == turns[-1].command == ""
-    assert payloads[-1]["next_action_hint"] == "done"
-    assert turns[-1].next_action_hint is not None
-    assert turns[-1].next_action_hint.startswith(payloads[-1]["next_action_hint"])
+    assert payloads[-1]["next_action_hint"] == turns[-1].next_action_hint
     assert payloads[-1]["complete_signal"] is True
     assert payloads[-1]["overarching_goal_complete"] is True
+    assert payloads[-1]["continuation_prompt_added"] is True
     assert turns[-1].overarching_goal_complete is True
+    assert turns[-1].continuation_prompt_added is True
     assert CONTINUATION_PROMPT_TEXT in (turns[-1].next_action_hint or "")
+
+
+def test_agent_loop_completion_only_log_matches_terminal_turn_with_continuation_prompt(
+    tmp_path,
+) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=CompletionOnlyClient(), shell=shell, log_dir=tmp_path, max_steps=1)
+
+    turns = loop.run("summarize")
+
+    payloads = [
+        json.loads(line)
+        for line in list(tmp_path.glob("session-*.log"))[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(payloads) == 1
+    assert payloads[0]["command"] == turns[-1].command == ""
+    assert payloads[0]["next_action_hint"] == turns[-1].next_action_hint
+    assert payloads[0]["overarching_goal_complete"] is True
+    assert payloads[0]["continuation_prompt_added"] is True
+    assert payloads[0]["complete_signal"] is True
 
 
 def test_agent_loop_confirms_completion_before_ending(tmp_path) -> None:

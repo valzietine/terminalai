@@ -69,6 +69,7 @@ class AgentLoop:
         exhausted_step_budget = True
         overarching_goal_complete = False
         verification_required = False
+        final_completion_log: tuple[SessionTurn, int, bool] | None = None
         for step_index in range(self.max_steps):
             if not self.auto_progress_turns and self.request_turn_progress:
                 should_continue, instruction = self.request_turn_progress(step_index + 1)
@@ -215,12 +216,7 @@ class AgentLoop:
                     risk_level=decision.risk_level,
                 )
                 turns.append(completion_turn)
-                self._append_log(
-                    completion_turn,
-                    goal=goal,
-                    step_index=step_index + 1,
-                    complete_signal=decision.complete,
-                )
+                final_completion_log = (completion_turn, step_index + 1, decision.complete)
                 exhausted_step_budget = False
                 overarching_goal_complete = bool(decision.complete)
                 break
@@ -372,6 +368,14 @@ class AgentLoop:
                 overarching_goal_complete=True,
             )
             self._append_continuation_prompt(turns)
+            if final_completion_log:
+                completion_turn, completion_step_index, complete_signal = final_completion_log
+                self._append_log(
+                    completion_turn,
+                    goal=goal,
+                    step_index=completion_step_index,
+                    complete_signal=complete_signal,
+                )
 
         return turns
 
