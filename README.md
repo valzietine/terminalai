@@ -61,6 +61,40 @@ Example:
 terminalai --shell cmd --model gpt-5.2-codex --max-steps 10 "Create a TODO.txt with three tasks"
 ```
 
+### Understanding runtime output in the terminal
+
+When `terminalai` executes commands, it prints one block per executed step. For example:
+
+```text
+[1] $ ls -la
+returncode=0
+duration=0.1090s
+stdout:
+total 75
+...
+stderr:
+
+hint: Listing all files (including hidden) in the current directory so I can summarize what’s here.
+```
+
+How to read each field:
+
+- `[1]`: step number in the current run (1-based index).
+- `$ ls -la`: exact command the model asked to run in the selected shell.
+- `returncode=0`: process exit code (`0` usually means success; non-zero usually means an error or partial failure).
+- `duration=0.1090s`: wall-clock runtime for that command in seconds.
+- `stdout:`: standard output stream (normal command output).
+- `stderr:`: standard error stream (warnings/errors emitted by the command).
+- `hint: ...`: model-provided reasoning note for what it plans next. This is not command output.
+
+Notes:
+
+- `stdout` and `stderr` are always printed, even when empty.
+- A run can include multiple blocks (`[1]`, `[2]`, `[3]`, ...), one per command.
+- The same `output` text and `hint` are also appended to JSONL session logs in `logs/session-YYYY-MM-DD.log` (or `TERMINALAI_LOG_DIR`).
+
+This section documents the **current** output contract. If the CLI output format changes, update this section in the same change.
+
 ### Environment variables
 
 - `TERMINALAI_OPENAI_API_KEY`: OpenAI API key for model calls.
