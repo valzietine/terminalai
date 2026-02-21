@@ -149,6 +149,8 @@ This prompt appears exactly once per completed top-level run, and does not appea
 
 This section documents the **current** output contract. If the CLI output format changes, update this section in the same change.
 
+At startup, `terminalai` does not preload repository files (such as `README.md`) into model context. The model can choose to read files by issuing explicit shell commands.
+
 ### Environment variables
 
 - `TERMINALAI_OPENAI_API_KEY`: OpenAI API key for model calls.
@@ -166,6 +168,7 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_READABLE_CLI_OUTPUT`: when `true` (default), print structured turn sections (`[command]`, `[output]`, `[hint]/[question]`); when `false`, use legacy plain output.
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
+- `TERMINALAI_MAX_CONTEXT_CHARS`: maximum number of serialized `session_context` characters included per model request (default `12000`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
 - `TERMINALAI_SAFETY_MODE`: canonical destructive-command safety mode. Supported values: `strict`, `allow_unsafe`, `off` (alias: `disabled`).
 
@@ -211,6 +214,7 @@ or platform defaults at runtime.
   "safety_mode": "strict",
   "shell": null,
   "max_steps": 20,
+  "max_context_chars": 12000,
   "cwd": null,
   "log_dir": "logs",
   "system_prompt": "You are TerminalAI, an expert terminal orchestration assistant..."

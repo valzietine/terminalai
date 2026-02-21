@@ -38,7 +38,7 @@ class LLMClient:
         api_key: str | None,
         model: str,
         system_prompt: str,
-        runtime_context: str | None = None,
+        max_context_chars: int = 12000,
         reasoning_effort: str | None = None,
         api_url: str = "https://api.openai.com/v1/responses",
         timeout: float = 60.0,
@@ -47,7 +47,7 @@ class LLMClient:
         self.api_key = api_key
         self.model = model
         self.system_prompt = system_prompt
-        self.runtime_context = runtime_context
+        self.max_context_chars = max_context_chars
         self.reasoning_effort = reasoning_effort
         self.api_url = api_url
         self.timeout = timeout
@@ -116,13 +116,6 @@ class LLMClient:
                 "content": self.system_prompt,
             }
         ]
-        if self.runtime_context:
-            input_messages.append(
-                {
-                    "role": "system",
-                    "content": self.runtime_context,
-                }
-            )
         if self.allow_user_feedback_pause:
             input_messages.append(
                 {
@@ -135,10 +128,14 @@ class LLMClient:
                 }
             )
         input_messages.append(
-            {
-                "role": "user",
-                "content": self._build_user_message(goal, session_context),
-            }
+                {
+                    "role": "user",
+                    "content": self._build_user_message(
+                        goal,
+                        session_context,
+                        max_context_chars=self.max_context_chars,
+                    ),
+                }
         )
 
         payload: dict[str, object] = {
@@ -163,9 +160,17 @@ class LLMClient:
         return payload
 
     @staticmethod
-    def _build_user_message(goal: str, session_context: list[dict[str, object]]) -> str:
+    def _build_user_message(
+        goal: str,
+        session_context: list[dict[str, object]],
+        *,
+        max_context_chars: int,
+    ) -> str:
         """Build a clear prompt containing goal and serialized context."""
-        context_json = json.dumps(session_context, indent=2, ensure_ascii=False)
+        context_json = LLMClient._serialize_context_with_limit(
+            session_context,
+            max_context_chars=max_context_chars,
+        )
         return (
             "User goal:\n"
             f"{goal}\n\n"
@@ -173,6 +178,25 @@ class LLMClient:
             f"{context_json}\n\n"
             "Use both the goal and context to decide the next safest, most useful step."
         )
+
+    @staticmethod
+    def _serialize_context_with_limit(
+        session_context: list[dict[str, object]],
+        *,
+        max_context_chars: int,
+    ) -> str:
+        if max_context_chars <= 0 or not session_context:
+            return "[]"
+
+        selected: list[dict[str, object]] = []
+        for event in reversed(session_context):
+            candidate = [event, *selected]
+            serialized = json.dumps(candidate, indent=2, ensure_ascii=False)
+            if len(serialized) > max_context_chars:
+                break
+            selected = candidate
+
+        return json.dumps(selected, indent=2, ensure_ascii=False)
 
     @staticmethod
     def _coerce_object_dict(value: object) -> dict[str, object] | None:

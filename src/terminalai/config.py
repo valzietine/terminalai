@@ -72,6 +72,7 @@ class AppConfig:
     readable_cli_output: bool
     shell: str
     max_steps: int
+    max_context_chars: int
     working_directory: str | None
 
     @classmethod
@@ -162,6 +163,11 @@ class AppConfig:
                 os.getenv("TERMINALAI_MAX_STEPS")
                 or file_config.get("max_steps"),
                 default=20,
+            ),
+            max_context_chars=_to_positive_int(
+                os.getenv("TERMINALAI_MAX_CONTEXT_CHARS")
+                or file_config.get("max_context_chars"),
+                default=12000,
             ),
             working_directory=(
                 os.getenv("TERMINALAI_CWD")

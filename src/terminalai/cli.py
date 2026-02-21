@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-import platform
 from pathlib import Path
 from typing import cast
 
 from .agent.loop import CONTINUATION_PROMPT_TEXT, AgentLoop
 from .agent.models import SessionTurn
-from .config import AppConfig, SafetyMode
+from .config import AppConfig
 from .llm.client import LLMClient
 from .shell import create_shell_adapter
 
@@ -21,29 +19,6 @@ LOGGER = logging.getLogger(__name__)
 class CLIArgs(argparse.Namespace):
     goal: str | None
     working_directory: str | None
-
-
-def build_runtime_context(
-    shell_name: str,
-    working_directory: str | None,
-    *,
-    safety_mode: SafetyMode,
-) -> str:
-    """Build startup orientation context for the model."""
-    effective_cwd = working_directory or str(Path.cwd())
-    return "\n".join(
-        [
-            "Runtime environment context:",
-            f"- operating_system: {platform.system()} {platform.release()}",
-            f"- platform: {platform.platform()}",
-            f"- architecture: {platform.machine()}",
-            f"- os_name: {os.name}",
-            f"- shell: {shell_name}",
-            f"- starting_working_directory: {effective_cwd}",
-            f"- safety_mode: {safety_mode}",
-            "Use this context to orient command choices to this machine.",
-        ]
-    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -86,11 +61,7 @@ def main() -> int:
         api_key=config.api_key,
         model=config.model,
         system_prompt=config.system_prompt,
-        runtime_context=build_runtime_context(
-            config.shell,
-            working_directory,
-            safety_mode=config.safety_mode,
-        ),
+        max_context_chars=config.max_context_chars,
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,
         allow_user_feedback_pause=config.allow_user_feedback_pause,
