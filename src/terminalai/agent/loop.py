@@ -188,6 +188,37 @@ class AgentLoop:
                             complete_signal=decision.complete,
                         )
                         continue
+                completion_hint = (
+                    decision.notes.strip()
+                    if isinstance(decision.notes, str) and decision.notes.strip()
+                    else (
+                        "Model indicated completion without additional commands."
+                        if decision.complete
+                        else (
+                            "No executable command was provided. Provide follow-up "
+                            "guidance to continue."
+                        )
+                    )
+                )
+                completion_turn = SessionTurn(
+                    input=goal,
+                    command="",
+                    output="",
+                    next_action_hint=completion_hint,
+                    turn_complete=True,
+                    subtask_complete=decision.complete,
+                    phase=decision.phase,
+                    expected_outcome=decision.expected_outcome,
+                    verification_command=decision.verification_command,
+                    risk_level=decision.risk_level,
+                )
+                turns.append(completion_turn)
+                self._append_log(
+                    completion_turn,
+                    goal=goal,
+                    step_index=step_index + 1,
+                    complete_signal=decision.complete,
+                )
                 exhausted_step_budget = False
                 overarching_goal_complete = bool(decision.complete)
                 break

@@ -79,9 +79,10 @@ def test_agent_loop_executes_and_logs(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     assert shell.working_directories == ["/tmp/workspace"]
     assert turns[0].command == "echo hi"
+    assert turns[1].command == ""
     log_files = list(tmp_path.glob("session-*.log"))
     assert len(log_files) == 1
     lines = log_files[0].read_text(encoding="utf-8").strip().splitlines()
@@ -165,9 +166,58 @@ def test_agent_loop_resumes_when_feedback_is_collected(tmp_path) -> None:
     turns = loop.run("need input")
 
     assert prompts == ["Which environment should I target?"]
-    assert [turn.awaiting_user_feedback for turn in turns] == [True, False]
+    assert [turn.awaiting_user_feedback for turn in turns] == [True, False, False]
     assert turns[1].command == "echo resumed"
+    assert turns[2].command == ""
     assert shell.commands == ["echo resumed"]
+
+
+
+class CompletionOnlyClient:
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        assert goal == "summarize"
+        assert session_context[-1]["type"] == "safety_policy"
+        return ModelDecision(command=None, notes="all done", complete=True)
+
+
+def test_agent_loop_logs_explicit_completion_only_turn(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=CompletionOnlyClient(), shell=shell, log_dir=tmp_path, max_steps=1)
+
+    turns = loop.run("summarize")
+
+    assert shell.commands == []
+    assert len(turns) == 1
+    assert turns[0].command == ""
+    assert turns[0].turn_complete is True
+    assert turns[0].next_action_hint is not None
+    assert "all done" in turns[0].next_action_hint
+
+    payload = json.loads(list(tmp_path.glob("session-*.log"))[0].read_text(encoding="utf-8"))
+    assert payload["command"] == ""
+    assert payload["complete_signal"] is True
+    assert payload["turn_complete"] is True
+
+
+def test_agent_loop_completion_log_metadata_matches_terminal_turn(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=FakeClient(), shell=shell, log_dir=tmp_path, max_steps=3)
+
+    turns = loop.run("list files")
+
+    payloads = [
+        json.loads(line)
+        for line in list(tmp_path.glob("session-*.log"))[0].read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert payloads[-1]["command"] == turns[-1].command == ""
+    assert payloads[-1]["next_action_hint"] == "done"
+    assert turns[-1].next_action_hint is not None
+    assert turns[-1].next_action_hint.startswith(payloads[-1]["next_action_hint"])
+    assert payloads[-1]["complete_signal"] is True
+    assert payloads[-1]["overarching_goal_complete"] is False
+    assert turns[-1].overarching_goal_complete is True
+    assert CONTINUATION_PROMPT_TEXT in (turns[-1].next_action_hint or "")
 
 
 def test_agent_loop_confirms_completion_before_ending(tmp_path) -> None:
@@ -188,7 +238,8 @@ def test_agent_loop_confirms_completion_before_ending(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
+    assert turns[-1].command == ""
     assert prompts == ["done"]
 
 
@@ -379,7 +430,7 @@ def test_agent_loop_emits_blocked_command_context_event(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     blocked_events = [
         event for event in client.contexts[1] if event.get("type") == "command_blocked"
     ]
@@ -396,7 +447,7 @@ def test_agent_loop_emits_executed_command_context_event(tmp_path) -> None:
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     executed_events = [
         event for event in client.contexts[1] if event.get("type") == "command_executed"
     ]
@@ -459,10 +510,12 @@ def test_agent_loop_appends_continuation_prompt_once_on_goal_completion(tmp_path
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
-    assert turns[0].overarching_goal_complete is True
-    assert turns[0].next_action_hint is not None
-    assert turns[0].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
+    assert len(turns) == 2
+    assert turns[-1].command == ""
+    assert turns[-1].overarching_goal_complete is True
+    assert turns[-1].next_action_hint is not None
+    assert turns[-1].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
+    assert turns[0].next_action_hint == "continue"
 
 
 def test_agent_loop_does_not_append_continuation_prompt_for_non_final_turns(tmp_path) -> None:
@@ -487,8 +540,8 @@ def test_continuation_prompt_not_repeated_when_final_message_retried(tmp_path) -
     turns = loop.run("list files")
     loop._append_continuation_prompt(turns)
 
-    assert turns[0].next_action_hint is not None
-    assert turns[0].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
+    assert turns[-1].next_action_hint is not None
+    assert turns[-1].next_action_hint.count(CONTINUATION_PROMPT_TEXT) == 1
 
 
 def test_agent_loop_can_disable_continuation_prompt(tmp_path) -> None:
@@ -504,7 +557,8 @@ def test_agent_loop_can_disable_continuation_prompt(tmp_path) -> None:
     turns = loop.run("list files")
 
     assert turns[0].next_action_hint == "continue"
-    assert turns[0].overarching_goal_complete is False
+    assert turns[-1].next_action_hint == "done"
+    assert all(turn.overarching_goal_complete is False for turn in turns)
 
 
 def test_agent_loop_pauses_between_turns_when_auto_progress_disabled(tmp_path) -> None:
@@ -529,7 +583,7 @@ def test_agent_loop_pauses_between_turns_when_auto_progress_disabled(tmp_path) -
 
     turns = loop.run("list files")
 
-    assert len(turns) == 1
+    assert len(turns) == 2
     assert prompts == [1, 2]
     turn_instruction_events = [
         event for event in client.contexts[0] if event.get("type") == "user_turn_instruction"
@@ -660,7 +714,8 @@ def test_agent_loop_allows_completion_after_verification_phase(tmp_path) -> None
     turns = loop.run("update files")
 
     assert shell.commands == ["echo mutate", "pytest -q"]
-    assert len(turns) == 2
+    assert len(turns) == 3
+    assert turns[-1].command == ""
     assert turns[-1].overarching_goal_complete is True
 
 
