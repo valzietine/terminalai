@@ -44,7 +44,12 @@ def main() -> int:
         return 1
 
     selected_model = args.model or config.model
-    client = LLMClient(api_key=config.api_key, model=selected_model, api_url=config.api_url)
+    client = LLMClient(
+        api_key=config.api_key,
+        model=selected_model,
+        reasoning_effort=config.reasoning_effort,
+        api_url=config.api_url,
+    )
     loop = AgentLoop(client=client, shell=adapter, log_dir=config.log_dir, max_steps=args.max_steps)
 
     turns = loop.run(goal)

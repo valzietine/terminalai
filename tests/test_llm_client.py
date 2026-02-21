@@ -19,3 +19,19 @@ def test_extract_output_json() -> None:
 
     assert parsed["command"] == "echo hi"
     assert parsed["complete"] is False
+
+
+def test_payload_includes_reasoning_effort_when_configured() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2-codex", reasoning_effort="medium")
+
+    payload = client._build_payload("test goal", [])
+
+    assert payload["reasoning"] == {"effort": "medium"}
+
+
+def test_payload_omits_reasoning_effort_when_unset() -> None:
+    client = LLMClient(api_key=None, model="gpt-4.1-mini")
+
+    payload = client._build_payload("test goal", [])
+
+    assert "reasoning" not in payload

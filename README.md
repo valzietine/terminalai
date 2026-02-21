@@ -19,11 +19,13 @@ The MVP intentionally prioritizes direct execution and does not add command gati
 
 ## Usage
 
-1. Set your API key:
+1. Set your OpenAI API key:
 
    ```bash
-   export TERMINALAI_API_KEY="your_api_key"
+   export TERMINALAI_OPENAI_API_KEY="your_openai_api_key"
    ```
+
+   `TERMINALAI_API_KEY` is still supported as a legacy alias.
 
 2. Run with a goal (installed CLI):
 
@@ -59,12 +61,40 @@ terminalai --shell cmd --model gpt-5.2-codex --max-steps 10 "Create a TODO.txt w
 
 ### Environment variables
 
-- `TERMINALAI_API_KEY`: API key for model calls.
-- `TERMINALAI_MODEL`: default model name (default: `gpt-5.2-codex`).
+- `TERMINALAI_OPENAI_API_KEY`: OpenAI API key for model calls.
+- `TERMINALAI_API_KEY`: legacy alias for `TERMINALAI_OPENAI_API_KEY`.
+- `TERMINALAI_MODEL`: default model name (default: `gpt-5.2`).
+- `TERMINALAI_REASONING_EFFORT`: optional reasoning level override (for example `low`, `medium`, or `high`) for models that support reasoning. If unset, `terminalai` defaults to `medium` for reasoning-capable families like GPT-5.
 - `TERMINALAI_API_URL`: responses endpoint URL.
+- `TERMINALAI_CONFIG_FILE`: path to JSON config file (default: `terminalai.config.json`).
 - `TERMINALAI_LOG_DIR`: directory for session logs (default: `logs`).
 - `TERMINALAI_SAFETY_ENABLED`: parsed but currently not enforced in the MVP execution path.
 - `TERMINALAI_ALLOW_UNSAFE`: parsed but currently not enforced in the MVP execution path.
+
+### JSON config file
+
+`terminalai` can load defaults from `terminalai.config.json` (or a custom path via `TERMINALAI_CONFIG_FILE`) with detailed OpenAI and per-model settings. You can set the OpenAI API key in either `openai.api_key` (recommended) or top-level `api_key`.
+
+```json
+{
+  "openai": {
+    "api_url": "https://api.openai.com/v1/responses",
+    "api_key": "YOUR_OPENAI_API_KEY"
+  },
+  "default_model": "gpt-5.2",
+  "models": {
+    "gpt-5.2": {
+      "reasoning_effort": "medium"
+    },
+    "gpt-5.2-codex": {
+      "reasoning_effort": "medium"
+    }
+  },
+  "log_dir": "logs"
+}
+```
+
+When both config file and environment variables are present, environment variables take precedence.
 
 
 ## Development workflow

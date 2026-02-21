@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 def _to_bool(value: str | None, default: bool = False) -> bool:
@@ -24,6 +26,7 @@ class AppConfig:
 
     api_key: str | None
     model: str
+    reasoning_effort: str | None
     safety_enabled: bool
     allow_unsafe: bool
     api_url: str
@@ -31,11 +34,73 @@ class AppConfig:
 
     @classmethod
     def from_env(cls) -> AppConfig:
+        file_config = _load_file_config(
+            os.getenv("TERMINALAI_CONFIG_FILE", "terminalai.config.json")
+        )
+        openai_from_file = file_config.get("openai")
+        openai_config = openai_from_file if isinstance(openai_from_file, dict) else {}
+        models_from_file = file_config.get("models")
+        model_config = models_from_file if isinstance(models_from_file, dict) else {}
+
+        selected_model = os.getenv("TERMINALAI_MODEL") or str(
+            file_config.get("default_model", "gpt-5.2")
+        )
+        selected_model_entry = model_config.get(selected_model)
+        selected_model_config = (
+            selected_model_entry if isinstance(selected_model_entry, dict) else {}
+        )
+
         return cls(
-            api_key=os.getenv("TERMINALAI_API_KEY"),
-            model=os.getenv("TERMINALAI_MODEL", "gpt-5.2-codex"),
+            api_key=(
+                os.getenv("TERMINALAI_OPENAI_API_KEY")
+                or os.getenv("TERMINALAI_API_KEY")
+                or _to_optional_string(openai_config.get("api_key"))
+                or _to_optional_string(file_config.get("api_key"))
+            ),
+            model=selected_model,
+            reasoning_effort=(
+                os.getenv("TERMINALAI_REASONING_EFFORT")
+                or _to_optional_string(selected_model_config.get("reasoning_effort"))
+                or _default_reasoning_effort(selected_model)
+            ),
             safety_enabled=_to_bool(os.getenv("TERMINALAI_SAFETY_ENABLED"), default=True),
             allow_unsafe=_to_bool(os.getenv("TERMINALAI_ALLOW_UNSAFE"), default=False),
-            api_url=os.getenv("TERMINALAI_API_URL", "https://api.openai.com/v1/responses"),
-            log_dir=os.getenv("TERMINALAI_LOG_DIR", "logs"),
+            api_url=(
+                os.getenv("TERMINALAI_API_URL")
+                or _to_optional_string(openai_config.get("api_url"))
+                or "https://api.openai.com/v1/responses"
+            ),
+            log_dir=(
+                os.getenv("TERMINALAI_LOG_DIR")
+                or _to_optional_string(file_config.get("log_dir"))
+                or "logs"
+            ),
         )
+
+
+def _to_optional_string(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _load_file_config(path_value: str) -> dict[str, object]:
+    path = Path(path_value)
+    if not path.exists() or not path.is_file():
+        return {}
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            parsed = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if isinstance(parsed, dict):
+        return parsed
+    return {}
+
+
+def _default_reasoning_effort(model: str) -> str | None:
+    """Provide practical defaults for reasoning-capable model families."""
+    normalized = model.strip().lower()
+    if normalized.startswith("gpt-5") or normalized.startswith("o"):
+        return "medium"
+    return None
