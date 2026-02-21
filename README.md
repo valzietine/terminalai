@@ -160,7 +160,7 @@ At startup, `terminalai` does not preload repository files (such as `README.md`)
 - `TERMINALAI_API_URL`: responses endpoint URL.
 - `TERMINALAI_CONFIG_FILE`: path to JSON config file (default: `terminalai.config.json`).
 - `TERMINALAI_LOG_DIR`: directory for session logs (default: `logs`).
-- `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
+- `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model. The runtime output contract requires `command`, `notes`, `complete`, `phase`, `expected_outcome`, `verification_command`, and `risk_level`; when feedback pause is enabled, it also requires `ask_user` and `user_question` with `ask_user=true` only for a critical blocking question.
 - `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
 - `TERMINALAI_CONTINUATION_PROMPT_ENABLED`: enables/disables the post-completion continuation question appended after the overarching goal is complete (default: `true`).
 - `TERMINALAI_AUTO_PROGRESS_TURNS`: when `true` (default), model turns run continuously; when `false`, the CLI pauses before each turn and waits for Enter/instructions.
@@ -218,6 +218,8 @@ or platform defaults at runtime.
   "system_prompt": "You are TerminalAI, an expert terminal orchestration assistant..."
 }
 ```
+
+When customizing `system_prompt`, keep the response contract aligned with runtime schema requirements: always require `command`, `notes`, `complete`, `phase`, `expected_outcome`, `verification_command`, and `risk_level`. If feedback pause is enabled (`allow_user_feedback_pause`/`TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`), also require `ask_user` and `user_question`, and only use `ask_user=true` when one critical missing fact blocks safe progress (with `command=null` and `complete=false`).
 
 When both config file and environment variables are present, environment variables take precedence.
 
