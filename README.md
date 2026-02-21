@@ -14,8 +14,11 @@ This program enables an LLM from an API like OpenAI to interface with a user's t
 TerminalAI enforces shell guardrails by default. Commands matching destructive patterns (for example `rm -rf`, `del /s /q`, and similar) are sent to the shell adapter with `confirmed=false` unless unsafe execution is explicitly enabled.
 
 - `safety_mode: "strict"` (default): guardrails are active; when a destructive command is proposed, the CLI asks for explicit user confirmation (`Run this command and continue? [y/N]`) before executing.
-- `safety_mode: "allow_unsafe"`: destructive commands are treated as confirmed and can execute.
-- `safety_mode: "off"` (or `"disabled"`): safety gating is disabled for destructive command confirmation checks.
+- `safety_mode: "allow_unsafe"`: terminalai sets `confirmed=true` for destructive commands, so they are auto-approved by terminalai and can run without an interactive prompt.
+- `safety_mode: "off"` (or `"disabled"`): terminalai does not do safety confirmation or prompting, but it also does **not** auto-approve destructive commands (`confirmed=false`), so shell-level guardrails/policies still decide whether the command runs.
+- Practical distinction:
+  - `allow_unsafe` = terminalai actively bypasses its destructive-command confirmation gate.
+  - `off` = terminalai steps out of the way and defers destructive-command handling to shell adapter policy.
 - Every command outcome is also fed back to the model as a structured `session_context` event (`command_executed`, `command_blocked`, or `command_declined`) including command text, `safety_mode`, and normalized reason codes for blocked/declined paths.
 
 ## Platforms
