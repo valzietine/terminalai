@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from terminalai.agent.models import AgentStep, ExecutionResult, SessionTurn
+from terminalai.config import SafetyMode
 from terminalai.llm.client import LLMClient
 from terminalai.shell import ShellAdapter
 
@@ -34,8 +35,7 @@ class AgentLoop:
         max_steps: int = 20,
         working_directory: str | None = None,
         confirm_before_complete: bool = False,
-        safety_enabled: bool = True,
-        allow_unsafe: bool = False,
+        safety_mode: SafetyMode = "strict",
         confirm_command_execution: ConfirmCommandExecution | None = None,
         confirm_completion: ConfirmCompletion | None = None,
         request_user_feedback: RequestUserFeedback | None = None,
@@ -47,8 +47,7 @@ class AgentLoop:
         self.max_steps = max_steps
         self.working_directory = working_directory
         self.confirm_before_complete = confirm_before_complete
-        self.safety_enabled = safety_enabled
-        self.allow_unsafe = allow_unsafe
+        self.safety_mode = safety_mode
         self.confirm_command_execution = confirm_command_execution
         self.confirm_completion = confirm_completion
         self.request_user_feedback = request_user_feedback
@@ -145,8 +144,7 @@ class AgentLoop:
                     goal=goal,
                     command=step.proposed_command,
                     reason="user_declined",
-                    safety_enabled=self.safety_enabled,
-                    allow_unsafe=self.allow_unsafe,
+                    safety_mode=self.safety_mode,
                 )
                 turn = SessionTurn(
                     input=goal,
@@ -186,8 +184,7 @@ class AgentLoop:
                     goal=goal,
                     command=step.proposed_command,
                     reason=self._normalize_block_reason(command_result),
-                    safety_enabled=self.safety_enabled,
-                    allow_unsafe=self.allow_unsafe,
+                    safety_mode=self.safety_mode,
                     returncode=command_result.returncode,
                 )
             else:
@@ -196,8 +193,7 @@ class AgentLoop:
                     event_type="command_executed",
                     goal=goal,
                     command=step.proposed_command,
-                    safety_enabled=self.safety_enabled,
-                    allow_unsafe=self.allow_unsafe,
+                    safety_mode=self.safety_mode,
                     returncode=command_result.returncode,
                 )
             result = ExecutionResult(
@@ -357,20 +353,18 @@ class AgentLoop:
             handle.write(json.dumps(entry) + "\n")
 
     def _safety_policy_context(self) -> dict[str, object]:
-        mode = "disabled"
-        if self.safety_enabled and self.allow_unsafe:
-            mode = "allow_unsafe"
-        elif self.safety_enabled:
-            mode = "strict"
+        mode = self.safety_mode
         return {
             "type": "safety_policy",
-            "safety_enabled": self.safety_enabled,
-            "allow_unsafe": self.allow_unsafe,
             "mode": mode,
             "instructions": (
                 "Avoid destructive commands unless explicitly requested by the user."
-                if self.safety_enabled and not self.allow_unsafe
-                else "Destructive commands may run when required by the goal."
+                if mode == "strict"
+                else (
+                    "Destructive commands may run when required by the goal."
+                    if mode == "allow_unsafe"
+                    else "Safety policy disabled; shell guardrails still apply."
+                )
             ),
         }
 
@@ -379,10 +373,10 @@ class AgentLoop:
     ) -> tuple[bool, bool]:
         if not destructive:
             return False, False
-        if not self.safety_enabled:
+        if self.safety_mode == "allow_unsafe":
             return True, False
-        if self.allow_unsafe:
-            return True, False
+        if self.safety_mode == "off":
+            return False, False
         if not self.confirm_command_execution:
             return False, False
         if self.confirm_command_execution(command):

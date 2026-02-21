@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from .agent.loop import AgentLoop
-from .config import AppConfig
+from .config import AppConfig, SafetyMode
 from .llm.client import LLMClient
 from .shell import create_shell_adapter
 
@@ -26,8 +26,7 @@ def build_runtime_context(
     shell_name: str,
     working_directory: str | None,
     *,
-    safety_enabled: bool,
-    allow_unsafe: bool,
+    safety_mode: SafetyMode,
 ) -> str:
     """Build startup orientation context for the model."""
     effective_cwd = working_directory or str(Path.cwd())
@@ -40,8 +39,7 @@ def build_runtime_context(
             f"- os_name: {os.name}",
             f"- shell: {shell_name}",
             f"- starting_working_directory: {effective_cwd}",
-            f"- safety_enabled: {safety_enabled}",
-            f"- allow_unsafe: {allow_unsafe}",
+            f"- safety_mode: {safety_mode}",
             "Use this context to orient command choices to this machine.",
         ]
     )
@@ -90,8 +88,7 @@ def main() -> int:
         runtime_context=build_runtime_context(
             config.shell,
             working_directory,
-            safety_enabled=config.safety_enabled,
-            allow_unsafe=config.allow_unsafe,
+            safety_mode=config.safety_mode,
         ),
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,
@@ -105,8 +102,7 @@ def main() -> int:
         working_directory=working_directory,
         confirm_before_complete=config.confirm_before_complete,
         continuation_prompt_enabled=config.continuation_prompt_enabled,
-        safety_enabled=config.safety_enabled,
-        allow_unsafe=config.allow_unsafe,
+        safety_mode=config.safety_mode,
         confirm_command_execution=_confirm_command_execution,
         confirm_completion=_confirm_completion,
         request_user_feedback=_request_user_feedback,

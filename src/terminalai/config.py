@@ -6,6 +6,9 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+SafetyMode = Literal["strict", "allow_unsafe", "off"]
 
 DEFAULT_SYSTEM_PROMPT = " ".join(
     [
@@ -58,8 +61,7 @@ class AppConfig:
     api_key: str | None
     model: str
     reasoning_effort: str | None
-    safety_enabled: bool
-    allow_unsafe: bool
+    safety_mode: SafetyMode
     api_url: str
     log_dir: str
     system_prompt: str
@@ -99,14 +101,7 @@ class AppConfig:
                 or _to_optional_string(selected_model_config.get("reasoning_effort"))
                 or _default_reasoning_effort(selected_model)
             ),
-            safety_enabled=_to_bool(
-                os.getenv("TERMINALAI_SAFETY_ENABLED"),
-                default=_to_bool_from_object(file_config.get("safety_enabled"), default=True),
-            ),
-            allow_unsafe=_to_bool(
-                os.getenv("TERMINALAI_ALLOW_UNSAFE"),
-                default=_to_bool_from_object(file_config.get("allow_unsafe"), default=False),
-            ),
+            safety_mode=_resolve_safety_mode(file_config),
             api_url=(
                 os.getenv("TERMINALAI_API_URL")
                 or _to_optional_string(openai_config.get("api_url"))
@@ -158,6 +153,32 @@ class AppConfig:
             ),
         )
 
+
+def _resolve_safety_mode(file_config: dict[str, object]) -> SafetyMode:
+    env_mode = _to_safety_mode(os.getenv("TERMINALAI_SAFETY_MODE"))
+    if env_mode is not None:
+        return env_mode
+
+    file_mode = _to_safety_mode(_to_optional_string(file_config.get("safety_mode")))
+    if file_mode is not None:
+        return file_mode
+
+    return "strict"
+
+
+def _to_safety_mode(value: str | None) -> SafetyMode | None:
+    if value is None:
+        return None
+
+    normalized = value.strip().lower()
+    aliases: dict[str, SafetyMode] = {
+        "strict": "strict",
+        "allow_unsafe": "allow_unsafe",
+        "unsafe": "allow_unsafe",
+        "off": "off",
+        "disabled": "off",
+    }
+    return aliases.get(normalized)
 
 def _to_optional_string(value: object) -> str | None:
     if isinstance(value, str) and value.strip():
