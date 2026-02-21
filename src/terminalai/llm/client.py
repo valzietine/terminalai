@@ -27,6 +27,7 @@ class LLMClient:
         api_key: str | None,
         model: str,
         system_prompt: str,
+        runtime_context: str | None = None,
         reasoning_effort: str | None = None,
         api_url: str = "https://api.openai.com/v1/responses",
         timeout: float = 60.0,
@@ -35,6 +36,7 @@ class LLMClient:
         self.api_key = api_key
         self.model = model
         self.system_prompt = system_prompt
+        self.runtime_context = runtime_context
         self.reasoning_effort = reasoning_effort
         self.api_url = api_url
         self.timeout = timeout
@@ -80,6 +82,13 @@ class LLMClient:
                 "content": self.system_prompt,
             }
         ]
+        if self.runtime_context:
+            input_messages.append(
+                {
+                    "role": "system",
+                    "content": self.runtime_context,
+                }
+            )
         if self.allow_user_feedback_pause:
             input_messages.append(
                 {
