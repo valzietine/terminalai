@@ -69,6 +69,7 @@ class AppConfig:
     confirm_before_complete: bool
     continuation_prompt_enabled: bool
     auto_progress_turns: bool
+    readable_cli_output: bool
     shell: str
     max_steps: int
     working_directory: str | None
@@ -143,6 +144,13 @@ class AppConfig:
                 os.getenv("TERMINALAI_AUTO_PROGRESS_TURNS"),
                 default=_to_bool_from_object(
                     file_config.get("auto_progress_turns"),
+                    default=True,
+                ),
+            ),
+            readable_cli_output=_to_bool(
+                os.getenv("TERMINALAI_READABLE_CLI_OUTPUT"),
+                default=_to_bool_from_object(
+                    file_config.get("readable_cli_output"),
                     default=True,
                 ),
             ),

@@ -22,6 +22,7 @@ def _fake_config() -> AppConfig:
         confirm_before_complete=False,
         continuation_prompt_enabled=True,
         auto_progress_turns=True,
+        readable_cli_output=True,
         shell="powershell",
         max_steps=20,
         working_directory=None,
@@ -201,9 +202,12 @@ def test_main_collects_feedback_and_prints_resumed_output(
     assert cli.main() == 0
 
     out = capsys.readouterr().out
-    assert "model paused and needs user input" in out
-    assert "question: Which environment should I target?" in out
-    assert "[2] $ echo resumed" in out
+    assert "=== Turn 1 (needs input) ===" in out
+    assert "[question]" in out
+    assert "Which environment should I target?" in out
+    assert "=== Turn 2 (running) ===" in out
+    assert "[command]" in out
+    assert "echo resumed" in out
 
 
 def test_confirm_command_execution_prompts_and_accepts_yes(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -219,3 +223,66 @@ def test_request_turn_progress_allows_quit_and_instruction(monkeypatch: pytest.M
     assert cli._request_turn_progress(1) == (True, None)
     assert cli._request_turn_progress(2) == (True, "check only src/")
     assert cli._request_turn_progress(3) == (False, None)
+
+
+def test_render_turn_trims_trailing_output_whitespace() -> None:
+    rendered = cli._render_turn(
+        SessionTurn(
+            input="goal",
+            command="echo hi",
+            output="line 1\nline 2\n\n",
+            next_action_hint="Done",
+            turn_complete=True,
+        ),
+        3,
+    )
+
+    assert "=== Turn 3 (completed) ===" in rendered
+    assert "[output]" in rendered
+    assert "line 1\nline 2" in rendered
+    assert not rendered.endswith("\n")
+
+
+def test_main_uses_legacy_output_when_readable_cli_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_argv = ["terminalai", "legacy output"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    class FakeAdapter:
+        name = "fake"
+
+    class FakeLoop:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def run(self, _goal: str) -> list[SessionTurn]:
+            return [
+                SessionTurn(
+                    input="legacy output",
+                    command="echo resumed",
+                    output="ok\n",
+                    next_action_hint="next",
+                )
+            ]
+
+    def fake_config() -> AppConfig:
+        config = _fake_config()
+        config.readable_cli_output = False
+        return config
+
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(fake_config)}),
+    )
+
+    assert cli.main() == 0
+
+    out = capsys.readouterr().out
+    assert "[1] $ echo resumed" in out
+    assert "hint: next" in out
+    assert "=== Turn" not in out

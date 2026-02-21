@@ -21,6 +21,7 @@
   "confirm_before_complete": false,
   "continuation_prompt_enabled": true,
   "auto_progress_turns": true,
+  "readable_cli_output": true,
   "shell": null,
   "max_steps": 20,
   "cwd": null,

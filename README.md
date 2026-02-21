@@ -88,34 +88,37 @@ terminalai --cwd ~/projects/demo "Create a TODO.txt with three tasks"
 
 ### Understanding runtime output in the terminal
 
-When `terminalai` executes commands, it prints one block per executed step. For example:
+By default (`readable_cli_output: true`), `terminalai` prints each turn using labeled sections so in-progress and completed states are easier to scan. For example:
 
 ```text
-[1] $ ls -la
+=== Turn 1 (running) ===
+[command]
+ls -la
+[output]
 returncode=0
 duration=0.1090s
 stdout:
 total 75
 ...
 stderr:
-
-hint: Listing all files (including hidden) in the current directory so I can summarize what’s here.
+[hint]
+Listing all files (including hidden) in the current directory so I can summarize what’s here.
 ```
 
-How to read each field:
+When the model pauses for a critical question, the turn is labeled clearly:
 
-- `[1]`: step number in the current run (1-based index).
-- `$ ls -la`: exact command the model asked to run in the selected shell.
-- `returncode=0`: process exit code (`0` usually means success; non-zero usually means an error or partial failure).
-- `duration=0.1090s`: wall-clock runtime for that command in seconds.
-- `stdout:`: standard output stream (normal command output).
-- `stderr:`: standard error stream (warnings/errors emitted by the command).
-- `hint: ...`: model-provided reasoning note for what it plans next. This is not command output.
+```text
+=== Turn 2 (needs input) ===
+[question]
+Which environment should I target?
+```
+
+If you disable this with `readable_cli_output: false` (or `TERMINALAI_READABLE_CLI_OUTPUT=false`), the CLI falls back to the legacy plain output style (`[n] $ command`, then output, then `hint:`).
 
 Notes:
 
-- `stdout` and `stderr` are always printed, even when empty.
-- A run can include multiple blocks (`[1]`, `[2]`, `[3]`, ...), one per command.
+- A run can include multiple blocks (`Turn 1`, `Turn 2`, ...), one per turn.
+- `output` preserves multiline command output while trimming trailing whitespace.
 - The same `output` text and `hint` are also appended to JSONL session logs in `logs/session-YYYY-MM-DD.log` (or `TERMINALAI_LOG_DIR`).
 - Each log line is schema-versioned with `log_version` and includes: `timestamp`, `goal`, `model`, `shell`, `working_directory`, `step_index`, `command`, `output`, `next_action_hint`, `returncode`, `duration`, `awaiting_user_feedback`, and `complete_signal`.
 
@@ -123,8 +126,8 @@ When `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE=true`, the model can pause and ask on
 question if it cannot proceed safely. In that case, the CLI prompts:
 
 ```text
-model paused and needs user input
-question: <model question>
+=== MODEL PAUSED: INPUT REQUIRED ===
+Question: <model question>
 Your response: <you type here>
 ```
 
@@ -160,6 +163,7 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_CONFIRM_BEFORE_COMPLETE`: when true, asks the user to confirm before ending after the model marks the task complete. If the user declines, the CLI captures follow-up objectives/questions and continues the run with that feedback.
 - `TERMINALAI_CONTINUATION_PROMPT_ENABLED`: enables/disables the post-completion continuation question appended after the overarching goal is complete (default: `true`).
 - `TERMINALAI_AUTO_PROGRESS_TURNS`: when `true` (default), model turns run continuously; when `false`, the CLI pauses before each turn and waits for Enter/instructions.
+- `TERMINALAI_READABLE_CLI_OUTPUT`: when `true` (default), print structured turn sections (`[command]`, `[output]`, `[hint]/[question]`); when `false`, use legacy plain output.
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
@@ -203,6 +207,7 @@ or platform defaults at runtime.
   "confirm_before_complete": false,
   "continuation_prompt_enabled": true,
   "auto_progress_turns": true,
+  "readable_cli_output": true,
   "safety_mode": "strict",
   "shell": null,
   "max_steps": 20,
