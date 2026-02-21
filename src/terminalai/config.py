@@ -56,6 +56,9 @@ class AppConfig:
     log_dir: str
     system_prompt: str
     allow_user_feedback_pause: bool
+    shell: str
+    max_steps: int
+    working_directory: str | None
 
     @classmethod
     def from_env(cls) -> AppConfig:
@@ -109,6 +112,20 @@ class AppConfig:
                 os.getenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE"),
                 default=bool(file_config.get("allow_user_feedback_pause", False)),
             ),
+            shell=_shell_value(
+                os.getenv("TERMINALAI_SHELL")
+                or _to_optional_string(file_config.get("shell"))
+                or "powershell"
+            ),
+            max_steps=_to_positive_int(
+                os.getenv("TERMINALAI_MAX_STEPS")
+                or file_config.get("max_steps"),
+                default=20,
+            ),
+            working_directory=(
+                os.getenv("TERMINALAI_CWD")
+                or _to_optional_string(file_config.get("cwd"))
+            ),
         )
 
 
@@ -138,3 +155,24 @@ def _default_reasoning_effort(model: str) -> str | None:
     if normalized.startswith("gpt-5") or normalized.startswith("o"):
         return "medium"
     return None
+
+
+def _shell_value(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"cmd", "powershell"}:
+        return normalized
+    return "powershell"
+
+
+def _to_positive_int(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value if value > 0 else default
+    if isinstance(value, str):
+        try:
+            parsed = int(value.strip())
+        except ValueError:
+            return default
+        return parsed if parsed > 0 else default
+    return default

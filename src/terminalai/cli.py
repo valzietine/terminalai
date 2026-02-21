@@ -17,28 +17,6 @@ LOGGER = logging.getLogger(__name__)
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="terminalai", description="Terminal AI assistant")
     parser.add_argument("goal", nargs="?", help="Goal for the model-driven terminal session")
-    parser.add_argument(
-        "--shell",
-        choices=["cmd", "powershell"],
-        default="powershell",
-        help="Shell to use for command execution",
-    )
-    parser.add_argument("--model", help="Override model name from environment config")
-    parser.add_argument(
-        "--max-steps",
-        type=int,
-        default=20,
-        help="Maximum model-execution iterations",
-    )
-    parser.add_argument(
-        "--cwd",
-        help="Starting working directory for executed commands (defaults to current directory)",
-    )
-    parser.add_argument(
-        "--allow-user-feedback-pause",
-        action="store_true",
-        help="Allow the model to pause and ask one important question when blocked",
-    )
     return parser
 
 
@@ -46,36 +24,37 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     config = AppConfig.from_env()
-    adapter = create_shell_adapter(args.shell)
+    adapter = create_shell_adapter(config.shell)
 
     goal = args.goal or input("Goal: ").strip()
     if not goal:
         print("No goal provided.")
         return 1
 
-    working_directory = str(Path(args.cwd).expanduser().resolve()) if args.cwd else None
+    working_directory = (
+        str(Path(config.working_directory).expanduser().resolve())
+        if config.working_directory
+        else None
+    )
     if working_directory is not None:
         candidate = Path(working_directory)
         if not candidate.exists() or not candidate.is_dir():
-            print(f"Invalid --cwd directory: {args.cwd}")
+            print(f"Invalid configured cwd directory: {config.working_directory}")
             return 1
 
-    selected_model = args.model or config.model
     client = LLMClient(
         api_key=config.api_key,
-        model=selected_model,
+        model=config.model,
         system_prompt=config.system_prompt,
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,
-        allow_user_feedback_pause=(
-            args.allow_user_feedback_pause or config.allow_user_feedback_pause
-        ),
+        allow_user_feedback_pause=config.allow_user_feedback_pause,
     )
     loop = AgentLoop(
         client=client,
         shell=adapter,
         log_dir=config.log_dir,
-        max_steps=args.max_steps,
+        max_steps=config.max_steps,
         working_directory=working_directory,
     )
 
