@@ -193,8 +193,9 @@ def _shell_value(value: str) -> str:
     return aliases.get(normalized, "powershell")
 
 
-def _default_shell_for_platform() -> str:
-    return "powershell" if os.name == "nt" else "bash"
+def _default_shell_for_platform(os_name: str | None = None) -> str:
+    platform_name = os.name if os_name is None else os_name
+    return "powershell" if platform_name == "nt" else "bash"
 
 
 def _resolve_shell(value: str | None) -> str:

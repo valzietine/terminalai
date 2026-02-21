@@ -232,16 +232,12 @@ def test_shell_value_normalizes_bash_aliases() -> None:
     assert _shell_value("pwsh") == "powershell"
 
 
-def test_default_shell_for_platform_windows(monkeypatch) -> None:
-    monkeypatch.setattr(config_module.os, "name", "nt")
-
-    assert _default_shell_for_platform() == "powershell"
+def test_default_shell_for_platform_windows() -> None:
+    assert _default_shell_for_platform("nt") == "powershell"
 
 
-def test_default_shell_for_platform_posix(monkeypatch) -> None:
-    monkeypatch.setattr(config_module.os, "name", "posix")
-
-    assert _default_shell_for_platform() == "bash"
+def test_default_shell_for_platform_posix() -> None:
+    assert _default_shell_for_platform("posix") == "bash"
 
 
 def test_shell_falls_back_to_platform_default_when_unset(tmp_path, monkeypatch) -> None:
@@ -253,12 +249,20 @@ def test_shell_falls_back_to_platform_default_when_unset(tmp_path, monkeypatch) 
 
     monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
     monkeypatch.delenv("TERMINALAI_SHELL", raising=False)
-    monkeypatch.setattr(config_module.os, "name", "nt")
+    monkeypatch.setattr(
+        config_module,
+        "_default_shell_for_platform",
+        lambda _os_name=None: "powershell",
+    )
 
     windows_config = AppConfig.from_env()
     assert windows_config.shell == "powershell"
 
-    monkeypatch.setattr(config_module.os, "name", "posix")
+    monkeypatch.setattr(
+        config_module,
+        "_default_shell_for_platform",
+        lambda _os_name=None: "bash",
+    )
 
     posix_config = AppConfig.from_env()
     assert posix_config.shell == "bash"
