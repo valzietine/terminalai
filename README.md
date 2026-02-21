@@ -16,3 +16,20 @@ The MVP intentionally prioritizes direct execution and does not add command gati
 
 - Operating system: Windows 10 (others may come later)
 - Shell adapters: Command Prompt and PowerShell
+
+
+## Development workflow
+
+Install dev dependencies:
+
+```bash
+pip install -e .[dev]
+```
+
+Run local checks before committing:
+
+```bash
+ruff check .      # lint
+mypy              # typecheck (strict on shell modules)
+pytest            # test
+```

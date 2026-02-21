@@ -6,14 +6,25 @@ import locale
 import shutil
 import subprocess
 
-from .base import CommandResult, ShellAdapter
+from .base import CommandResult, PolicyHook, ShellAdapter
 
 
 class PowerShellAdapter(ShellAdapter):
     """Adapter for command execution via PowerShell."""
 
-    def __init__(self, executable: str | None = None, **kwargs: object) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        executable: str | None = None,
+        *,
+        allowlist_hook: PolicyHook | None = None,
+        denylist_hook: PolicyHook | None = None,
+        confirmation_mode: bool = True,
+    ) -> None:
+        super().__init__(
+            allowlist_hook=allowlist_hook,
+            denylist_hook=denylist_hook,
+            confirmation_mode=confirmation_mode,
+        )
         self.executable = executable or _default_executable()
 
     @property

@@ -5,14 +5,25 @@ from __future__ import annotations
 import locale
 import subprocess
 
-from .base import CommandResult, ShellAdapter
+from .base import CommandResult, PolicyHook, ShellAdapter
 
 
 class CmdAdapter(ShellAdapter):
     """Adapter for command execution via ``cmd.exe``."""
 
-    def __init__(self, executable: str = "cmd.exe", **kwargs: object) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        executable: str = "cmd.exe",
+        *,
+        allowlist_hook: PolicyHook | None = None,
+        denylist_hook: PolicyHook | None = None,
+        confirmation_mode: bool = True,
+    ) -> None:
+        super().__init__(
+            allowlist_hook=allowlist_hook,
+            denylist_hook=denylist_hook,
+            confirmation_mode=confirmation_mode,
+        )
         self.executable = executable
 
     @property
