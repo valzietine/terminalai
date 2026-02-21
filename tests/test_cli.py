@@ -82,7 +82,7 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
         def __init__(self, **kwargs: object) -> None:
             captured.update(kwargs)
 
-        def run(self, _goal: str) -> list[object]:
+        def run(self, _goal: str, **_kwargs: object) -> list[object]:
             return []
 
     def fake_config_with_cwd() -> AppConfig:
@@ -123,7 +123,7 @@ def test_main_cwd_cli_override_takes_precedence(
         def __init__(self, **kwargs: object) -> None:
             captured.update(kwargs)
 
-        def run(self, _goal: str) -> list[object]:
+        def run(self, _goal: str, **_kwargs: object) -> list[object]:
             return []
 
     def fake_config_with_cwd() -> AppConfig:
@@ -170,7 +170,7 @@ def test_main_collects_feedback_and_prints_resumed_output(
         def __init__(self, **kwargs: object) -> None:
             self.request_user_feedback = kwargs["request_user_feedback"]
 
-        def run(self, _goal: str) -> list[SessionTurn]:
+        def run(self, _goal: str, **_kwargs: object) -> list[SessionTurn]:
             response = self.request_user_feedback("Which environment should I target?")
             assert response == "Use staging"
             return [
@@ -257,7 +257,7 @@ def test_main_uses_legacy_output_when_readable_cli_disabled(
         def __init__(self, **_kwargs: object) -> None:
             pass
 
-        def run(self, _goal: str) -> list[SessionTurn]:
+        def run(self, _goal: str, **_kwargs: object) -> list[SessionTurn]:
             return [
                 SessionTurn(
                     input="legacy output",
@@ -286,3 +286,62 @@ def test_main_uses_legacy_output_when_readable_cli_disabled(
     assert "[1] $ echo resumed" in out
     assert "hint: next" in out
     assert "=== Turn" not in out
+
+def test_main_allows_continuation_with_new_instruction(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_argv = ["terminalai", "first goal"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    class FakeAdapter:
+        name = "fake"
+
+    class FakeLoop:
+        def __init__(self, **_kwargs: object) -> None:
+            self.calls: list[tuple[str, list[SessionTurn] | None]] = []
+
+        def run(
+            self,
+            goal: str,
+            prior_turns: list[SessionTurn] | None = None,
+        ) -> list[SessionTurn]:
+            self.calls.append((goal, prior_turns))
+            if len(self.calls) == 1:
+                return [
+                    SessionTurn(
+                        input=goal,
+                        command="echo done",
+                        output="ok",
+                        next_action_hint="complete",
+                        turn_complete=True,
+                        overarching_goal_complete=True,
+                        continuation_prompt_added=True,
+                    )
+                ]
+            return [
+                SessionTurn(
+                    input=goal,
+                    command="echo second",
+                    output="ok",
+                    next_action_hint="done",
+                    turn_complete=True,
+                )
+            ]
+
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(_fake_config)}),
+    )
+
+    answers = iter(["y", "second goal"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    assert cli.main() == 0
+
+    out = capsys.readouterr().out
+    assert "=== Turn 1" in out
+    assert "=== Turn 2" in out
