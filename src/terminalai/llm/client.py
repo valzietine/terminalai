@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import cast
 from urllib import request
 from urllib.error import HTTPError, URLError
+
+from terminalai.agent.models import DecisionPhase, RiskLevel
+
+VALID_PHASES: set[DecisionPhase] = {"analysis", "mutation", "verification", "completion"}
+VALID_RISK_LEVELS: set[RiskLevel] = {"low", "medium", "high"}
 
 
 @dataclass(slots=True)
@@ -17,6 +23,10 @@ class ModelDecision:
     complete: bool = False
     ask_user: bool = False
     user_question: str | None = None
+    phase: DecisionPhase = "analysis"
+    expected_outcome: str | None = None
+    verification_command: str | None = None
+    risk_level: RiskLevel | None = None
 
 
 class LLMClient:
@@ -82,8 +92,19 @@ class LLMClient:
             "command": {"type": ["string", "null"]},
             "notes": {"type": ["string", "null"]},
             "complete": {"type": "boolean"},
+            "phase": {"type": "string", "enum": sorted(VALID_PHASES)},
+            "expected_outcome": {"type": ["string", "null"]},
+            "verification_command": {"type": ["string", "null"]},
+            "risk_level": {"type": ["string", "null"], "enum": [*sorted(VALID_RISK_LEVELS), None]},
         }
-        required_keys = ["command", "complete", "notes"]
+        required_keys = [
+            "command",
+            "complete",
+            "notes",
+            "phase",
+            "expected_outcome",
+            "verification_command",
+        ]
         if self.allow_user_feedback_pause:
             schema_properties["ask_user"] = {"type": "boolean"}
             schema_properties["user_question"] = {"type": ["string", "null"]}
@@ -196,6 +217,10 @@ class LLMClient:
         complete = parsed.get("complete", False)
         ask_user = parsed.get("ask_user", False)
         user_question = parsed.get("user_question")
+        phase = parsed.get("phase", "analysis")
+        expected_outcome = parsed.get("expected_outcome")
+        verification_command = parsed.get("verification_command")
+        risk_level = parsed.get("risk_level")
 
         if command is not None and not isinstance(command, str):
             command = None
@@ -208,6 +233,16 @@ class LLMClient:
             ask_user = False
         if user_question is not None and not isinstance(user_question, str):
             user_question = None
+        if not isinstance(phase, str) or phase not in VALID_PHASES:
+            phase = "analysis"
+        normalized_phase = cast(DecisionPhase, phase)
+        if expected_outcome is not None and not isinstance(expected_outcome, str):
+            expected_outcome = None
+        if verification_command is not None and not isinstance(verification_command, str):
+            verification_command = None
+        if not isinstance(risk_level, str) or risk_level not in VALID_RISK_LEVELS:
+            risk_level = None
+        normalized_risk_level = cast(RiskLevel | None, risk_level)
 
         return ModelDecision(
             command=command,
@@ -215,4 +250,8 @@ class LLMClient:
             complete=complete,
             ask_user=ask_user,
             user_question=user_question,
+            phase=normalized_phase,
+            expected_outcome=expected_outcome,
+            verification_command=verification_command,
+            risk_level=normalized_risk_level,
         )

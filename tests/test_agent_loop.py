@@ -554,3 +554,125 @@ def test_agent_loop_stops_when_user_declines_to_progress(tmp_path) -> None:
 
     assert turns == []
     assert shell.commands == []
+
+
+class MutationThenCompletionClient:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.contexts: list[list[dict[str, object]]] = []
+
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
+        self.contexts.append(session_context)
+        if self.calls == 1:
+            return ModelDecision(
+                command="echo mutate",
+                notes="apply",
+                complete=False,
+                phase="mutation",
+                expected_outcome="file updated",
+                verification_command="pytest -q",
+                risk_level="medium",
+            )
+        if self.calls == 2:
+            return ModelDecision(
+                command=None,
+                notes="done",
+                complete=True,
+                phase="completion",
+                expected_outcome="all complete",
+            )
+        if self.calls == 3:
+            return ModelDecision(
+                command="pytest -q",
+                notes="verify",
+                complete=False,
+                phase="verification",
+                expected_outcome="tests pass",
+                verification_command="pytest -q",
+                risk_level="low",
+            )
+        return ModelDecision(
+            command=None,
+            notes="done",
+            complete=True,
+            phase="completion",
+            expected_outcome="all complete",
+        )
+
+
+def test_agent_loop_requires_verification_after_mutation_before_completion(tmp_path) -> None:
+    shell = FakeShell()
+    client = MutationThenCompletionClient()
+    loop = AgentLoop(client=client, shell=shell, log_dir=tmp_path, max_steps=4)
+
+    turns = loop.run("update files")
+
+    assert shell.commands == ["echo mutate", "pytest -q"]
+    assert turns[1].command == ""
+    assert turns[1].phase == "completion"
+    assert "Run a verification phase" in (turns[1].next_action_hint or "")
+    blocked_events = [
+        event for event in client.contexts[2] if event.get("type") == "phase_transition_blocked"
+    ]
+    assert len(blocked_events) == 1
+    assert blocked_events[0]["required_phase"] == "verification"
+
+
+class MutationVerificationCompletionClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
+        if self.calls == 1:
+            return ModelDecision(
+                command="echo mutate",
+                complete=False,
+                phase="mutation",
+                expected_outcome="changed",
+            )
+        if self.calls == 2:
+            return ModelDecision(
+                command="pytest -q",
+                complete=False,
+                phase="verification",
+                expected_outcome="tests pass",
+                verification_command="pytest -q",
+            )
+        return ModelDecision(
+            command=None,
+            complete=True,
+            phase="completion",
+            expected_outcome="done",
+        )
+
+
+def test_agent_loop_allows_completion_after_verification_phase(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(
+        client=MutationVerificationCompletionClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=4,
+    )
+
+    turns = loop.run("update files")
+
+    assert shell.commands == ["echo mutate", "pytest -q"]
+    assert len(turns) == 2
+    assert turns[-1].overarching_goal_complete is True
+
+
+def test_agent_loop_logs_phase_metadata(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=FakeClient(), shell=shell, log_dir=tmp_path, max_steps=2)
+
+    loop.run("list files")
+
+    log_file = list(tmp_path.glob("session-*.log"))[0]
+    payload = json.loads(log_file.read_text(encoding="utf-8").splitlines()[0])
+    assert payload["phase"] == "analysis"
+    assert payload["expected_outcome"] is None
+    assert payload["verification_command"] is None
+    assert payload["risk_level"] is None

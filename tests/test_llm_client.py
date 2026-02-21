@@ -108,6 +108,62 @@ def test_payload_user_message_formats_goal_and_context() -> None:
     assert '"type": "step_budget"' in user_message
 
 
+
+def test_payload_includes_phase_metadata_schema() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
+
+    payload = client._build_payload("test goal", [])
+
+    schema = payload["text"]["format"]["schema"]
+    assert schema["properties"]["phase"]["enum"] == [
+        "analysis",
+        "completion",
+        "mutation",
+        "verification",
+    ]
+    assert "phase" in schema["required"]
+    assert "expected_outcome" in schema["required"]
+    assert "verification_command" in schema["required"]
+    assert "risk_level" in schema["properties"]
+
+
+def test_to_model_decision_coerces_invalid_phase_metadata() -> None:
+    decision = LLMClient._to_model_decision(
+        {
+            "command": "echo hi",
+            "notes": "next",
+            "complete": False,
+            "phase": "invalid",
+            "expected_outcome": 42,
+            "verification_command": ["pytest"],
+            "risk_level": "critical",
+        }
+    )
+
+    assert decision.phase == "analysis"
+    assert decision.expected_outcome is None
+    assert decision.verification_command is None
+    assert decision.risk_level is None
+
+
+def test_to_model_decision_preserves_valid_phase_metadata() -> None:
+    decision = LLMClient._to_model_decision(
+        {
+            "command": "pytest -q",
+            "notes": "verify",
+            "complete": False,
+            "phase": "verification",
+            "expected_outcome": "tests pass",
+            "verification_command": "pytest -q",
+            "risk_level": "low",
+        }
+    )
+
+    assert decision.phase == "verification"
+    assert decision.expected_outcome == "tests pass"
+    assert decision.verification_command == "pytest -q"
+    assert decision.risk_level == "low"
+
 def test_next_command_returns_safe_decision_on_http_error(monkeypatch) -> None:
     client = LLMClient(api_key=None, model="gpt-5.2", system_prompt="be careful")
 
