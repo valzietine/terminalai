@@ -162,3 +162,13 @@ def test_bash_adapter_falls_back_to_sh(monkeypatch: pytest.MonkeyPatch) -> None:
     adapter = BashAdapter()
 
     assert adapter.executable == "sh"
+
+
+def test_bash_adapter_allows_destructive_command_when_confirmation_mode_disabled() -> None:
+    result = BashAdapter(executable="bash", confirmation_mode=False).execute(
+        "rm -rf ./tmp", dry_run=True
+    )
+
+    assert result.executed is False
+    assert result.blocked is False
+    assert result.returncode == 0

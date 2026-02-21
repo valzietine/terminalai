@@ -11,7 +11,11 @@ This program enables an LLM from an API like OpenAI to interface with a user's t
 
 ## Safety posture
 
-The MVP intentionally prioritizes direct execution and does not add command gating in the orchestration path. Additional safety controls (policy filters, guardrails, and confirmations) are planned for a later phase.
+TerminalAI enforces shell guardrails by default. Commands matching destructive patterns (for example `rm -rf`, `del /s /q`, and similar) are sent to the shell adapter with `confirmed=false` unless unsafe execution is explicitly enabled.
+
+- `TERMINALAI_SAFETY_ENABLED=true` (default): guardrails are active; when a destructive command is proposed, the CLI asks for explicit user confirmation (`Run this command and continue? [y/N]`) before executing.
+- `TERMINALAI_ALLOW_UNSAFE=true`: destructive commands are treated as confirmed and can execute.
+- `TERMINALAI_SAFETY_ENABLED=false`: safety gating is disabled for destructive command confirmation checks.
 
 ## Platforms
 
@@ -139,8 +143,8 @@ This section documents the **current** output contract. If the CLI output format
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
-- `TERMINALAI_SAFETY_ENABLED`: parsed but currently not enforced in the MVP execution path.
-- `TERMINALAI_ALLOW_UNSAFE`: parsed but currently not enforced in the MVP execution path.
+- `TERMINALAI_SAFETY_ENABLED`: enables destructive-command safety gating (default: `true`).
+- `TERMINALAI_ALLOW_UNSAFE`: when `true`, destructive commands are treated as explicitly confirmed by policy and can run.
 
 ### JSON config file
 

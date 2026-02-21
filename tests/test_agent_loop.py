@@ -21,6 +21,7 @@ class FakeShell:
     def __init__(self) -> None:
         self.commands: list[str] = []
         self.working_directories: list[str | None] = []
+        self.confirmed_calls: list[bool] = []
 
     def execute(
         self,
@@ -28,10 +29,20 @@ class FakeShell:
         *,
         cwd: str | None = None,
         confirmed: bool = False,
-    ) -> FakeResult:  # noqa: ARG002
+    ) -> FakeResult:
         self.commands.append(command)
         self.working_directories.append(cwd)
+        self.confirmed_calls.append(confirmed)
+        if self.is_destructive_command(command) and not confirmed:
+            return FakeResult(
+                stdout="",
+                stderr="destructive command requires explicit confirmation",
+                returncode=126,
+            )
         return FakeResult(stdout="ok", stderr="", returncode=0)
+
+    def is_destructive_command(self, command: str) -> bool:
+        return command.startswith("rm -rf")
 
 
 class FakeClient:
@@ -42,7 +53,7 @@ class FakeClient:
         self.calls += 1
         if self.calls == 1:
             assert goal == "list files"
-            assert session_context == []
+            assert session_context[0]["type"] == "safety_policy"
             return ModelDecision(command="echo hi", notes="continue", complete=False)
         return ModelDecision(command=None, notes="done", complete=True)
 
@@ -77,7 +88,7 @@ class FakeQuestionClient:
         self.calls += 1
         assert goal == "need input"
         if self.calls == 1:
-            assert session_context == []
+            assert session_context[0]["type"] == "safety_policy"
             return ModelDecision(
                 command=None,
                 notes=None,
@@ -163,7 +174,7 @@ class FakeCompletionFeedbackClient:
         self.calls += 1
         if self.calls == 1:
             return ModelDecision(command=None, notes="done", complete=True)
-        assert session_context[-1]["next_action_hint"] == (
+        assert session_context[0]["next_action_hint"] == (
             "User declined completion: Please show what changed and explain it."
         )
         return ModelDecision(command="echo follow-up", notes=None, complete=False)
@@ -190,3 +201,71 @@ def test_agent_loop_resumes_after_user_declines_completion(tmp_path) -> None:
     assert turns[0].command == ""
     assert turns[1].command == "echo follow-up"
     assert shell.commands == ["echo follow-up"]
+
+
+class DestructiveCommandClient:
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        assert goal == "delete temp files"
+        assert session_context[0]["type"] == "safety_policy"
+        return ModelDecision(command="rm -rf ./tmp", notes="cleanup", complete=False)
+
+
+def test_agent_loop_prompts_and_skips_destructive_command_when_user_declines(tmp_path) -> None:
+    shell = FakeShell()
+    prompts: list[str] = []
+
+    def confirm_command_execution(command: str) -> bool:
+        prompts.append(command)
+        return False
+
+    loop = AgentLoop(
+        client=DestructiveCommandClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=1,
+        safety_enabled=True,
+        allow_unsafe=False,
+        confirm_command_execution=confirm_command_execution,
+    )
+
+    turns = loop.run("delete temp files")
+
+    assert prompts == ["rm -rf ./tmp"]
+    assert shell.commands == []
+    assert "User declined destructive command execution" in turns[0].output
+
+
+def test_agent_loop_confirms_and_runs_destructive_command_when_user_accepts(tmp_path) -> None:
+    shell = FakeShell()
+
+    loop = AgentLoop(
+        client=DestructiveCommandClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=1,
+        safety_enabled=True,
+        allow_unsafe=False,
+        confirm_command_execution=lambda _command: True,
+    )
+
+    turns = loop.run("delete temp files")
+
+    assert shell.confirmed_calls == [True]
+    assert "returncode=0" in turns[0].output
+
+
+def test_agent_loop_allows_destructive_commands_when_allow_unsafe_enabled(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(
+        client=DestructiveCommandClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=1,
+        safety_enabled=True,
+        allow_unsafe=True,
+    )
+
+    turns = loop.run("delete temp files")
+
+    assert shell.confirmed_calls == [True]
+    assert "returncode=0" in turns[0].output

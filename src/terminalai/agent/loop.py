@@ -25,6 +25,9 @@ class AgentLoop:
         max_steps: int = 20,
         working_directory: str | None = None,
         confirm_before_complete: bool = False,
+        safety_enabled: bool = True,
+        allow_unsafe: bool = False,
+        confirm_command_execution: Callable[[str], bool] | None = None,
         confirm_completion: Callable[[str | None], tuple[bool, str | None]] | None = None,
         request_user_feedback: Callable[[str], str] | None = None,
     ) -> None:
@@ -34,12 +37,15 @@ class AgentLoop:
         self.max_steps = max_steps
         self.working_directory = working_directory
         self.confirm_before_complete = confirm_before_complete
+        self.safety_enabled = safety_enabled
+        self.allow_unsafe = allow_unsafe
+        self.confirm_command_execution = confirm_command_execution
         self.confirm_completion = confirm_completion
         self.request_user_feedback = request_user_feedback
 
     def run(self, goal: str) -> list[SessionTurn]:
         turns: list[SessionTurn] = []
-        extra_context: list[dict[str, object]] = []
+        extra_context: list[dict[str, object]] = [self._safety_policy_context()]
 
         for _ in range(self.max_steps):
             context = [asdict(turn) for turn in turns] + extra_context
@@ -91,10 +97,34 @@ class AgentLoop:
                 break
 
             step = AgentStep(goal=goal, proposed_command=decision.command)
+            destructive = self.shell.is_destructive_command(step.proposed_command)
+            confirmed, declined = self._resolve_command_confirmation(
+                command=step.proposed_command,
+                destructive=destructive,
+            )
+            if declined:
+                turn = SessionTurn(
+                    input=goal,
+                    command=step.proposed_command,
+                    output=(
+                        "returncode=130\n"
+                        "duration=0.0000s\n"
+                        "stdout:\n\n"
+                        "stderr:\n"
+                        "User declined destructive command execution."
+                    ),
+                    next_action_hint=(
+                        "User declined command execution; choose a safer alternative."
+                    ),
+                )
+                turns.append(turn)
+                self._append_log(turn)
+                continue
+
             command_result = self.shell.execute(
                 step.proposed_command,
                 cwd=self.working_directory,
-                confirmed=True,
+                confirmed=confirmed,
             )
             result = ExecutionResult(
                 stdout=command_result.stdout,
@@ -134,3 +164,36 @@ class AgentLoop:
         }
         with day_file.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
+
+    def _safety_policy_context(self) -> dict[str, object]:
+        mode = "disabled"
+        if self.safety_enabled and self.allow_unsafe:
+            mode = "allow_unsafe"
+        elif self.safety_enabled:
+            mode = "strict"
+        return {
+            "type": "safety_policy",
+            "safety_enabled": self.safety_enabled,
+            "allow_unsafe": self.allow_unsafe,
+            "mode": mode,
+            "instructions": (
+                "Avoid destructive commands unless explicitly requested by the user."
+                if self.safety_enabled and not self.allow_unsafe
+                else "Destructive commands may run when required by the goal."
+            ),
+        }
+
+    def _resolve_command_confirmation(
+        self, *, command: str, destructive: bool
+    ) -> tuple[bool, bool]:
+        if not destructive:
+            return False, False
+        if not self.safety_enabled:
+            return True, False
+        if self.allow_unsafe:
+            return True, False
+        if not self.confirm_command_execution:
+            return False, False
+        if self.confirm_command_execution(command):
+            return True, False
+        return False, True
