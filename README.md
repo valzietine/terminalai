@@ -138,6 +138,27 @@ This section documents the **current** output contract. If the CLI output format
 
 When both config file and environment variables are present, environment variables take precedence.
 
+#### Config option designations and meanings
+
+Designation legend:
+
+- **[required]**: Needed for normal authenticated usage.
+- **[recommended]**: Sensible default to keep unless you have a reason to change it.
+- **[optional]**: Set only when you want custom behavior.
+- **[advanced]**: Power-user setting; leave unchanged unless necessary.
+
+| Config option | Designation | Concise description |
+| --- | --- | --- |
+| `openai.api_url` | `[recommended]` | Responses API endpoint used for model calls. |
+| `openai.api_key` | `[required]` | Secret key used to authenticate with OpenAI. |
+| `default_model` | `[recommended]` | Model name used by default for orchestration. |
+| `models.<name>.reasoning_effort` | `[optional]` | Per-model reasoning level (`low`, `medium`, `high`, or `null`). |
+| `log_dir` | `[optional]` | Directory where session logs are saved. |
+| `system_prompt` | `[advanced]` | Default system instruction text sent to the model. |
+| `shell` | `[recommended]` | Shell adapter used to execute commands (`cmd` or `powershell`). |
+| `max_steps` | `[optional]` | Maximum model/command iterations before stopping. |
+| `cwd` | `[optional]` | Starting working directory (`null` means current directory). |
+
 
 ## Development workflow
 
