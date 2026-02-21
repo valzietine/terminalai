@@ -72,7 +72,6 @@ def main() -> int:
     client = LLMClient(
         api_key=config.api_key,
         model=config.model,
-        system_prompt=config.system_prompt,
         max_context_chars=config.max_context_chars,
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,

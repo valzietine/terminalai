@@ -10,43 +10,6 @@ from typing import Literal
 
 SafetyMode = Literal["strict", "allow_unsafe", "off"]
 
-DEFAULT_SYSTEM_PROMPT = " ".join(
-    [
-        "You are TerminalAI, an expert terminal orchestration assistant.",
-        (
-            "First orient yourself to the machine context and execution history,"
-            " then choose the single best next shell command for the user's goal."
-        ),
-        "Prefer safe, reversible, and idempotent operations.",
-        (
-            "Avoid destructive commands unless they are explicitly requested"
-            " and clearly justified by the goal."
-        ),
-        (
-            "If the goal is complete, or no command should be run, set"
-            " command to null and complete to true."
-        ),
-        (
-            "Always return strict JSON with keys: command (string or null),"
-            " notes (string or null), complete (boolean), phase"
-            " (analysis|mutation|verification|completion), expected_outcome"
-            " (string or null), verification_command (string or null), and"
-            " risk_level (low|medium|high or null)."
-        ),
-        (
-            "Use notes as a concise hint that explains what is happening now,"
-            " what just happened, and what I will do next, unless the goal is"
-            " complete."
-        ),
-        (
-            "When user feedback pause is enabled, include ask_user"
-            " (boolean) and user_question (string or null): set ask_user=true"
-            " only for one critical missing fact that blocks safe progress,"
-            " set command to null, and keep complete=false."
-        ),
-    ]
-)
-
 
 def _to_bool(value: str | None, default: bool = False) -> bool:
     """Convert common env var truthy/falsy values into booleans."""
@@ -78,7 +41,6 @@ class AppConfig:
     safety_mode: SafetyMode
     api_url: str
     log_dir: str
-    system_prompt: str
     allow_user_feedback_pause: bool
     continuation_prompt_enabled: bool
     auto_progress_turns: bool
@@ -128,11 +90,6 @@ class AppConfig:
                 or _to_optional_string(file_config.get("log_dir"))
                 or "logs"
             ),
-            system_prompt=(
-                os.getenv("TERMINALAI_SYSTEM_PROMPT")
-                or _to_optional_string(file_config.get("system_prompt"))
-                or DEFAULT_SYSTEM_PROMPT
-            ),
             allow_user_feedback_pause=_to_bool(
                 os.getenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE"),
                 default=_to_bool_from_object(
@@ -162,22 +119,18 @@ class AppConfig:
                 ),
             ),
             shell=_resolve_shell(
-                os.getenv("TERMINALAI_SHELL")
-                or _to_optional_string(file_config.get("shell"))
+                os.getenv("TERMINALAI_SHELL") or _to_optional_string(file_config.get("shell"))
             ),
             max_steps=_to_positive_int(
-                os.getenv("TERMINALAI_MAX_STEPS")
-                or file_config.get("max_steps"),
+                os.getenv("TERMINALAI_MAX_STEPS") or file_config.get("max_steps"),
                 default=20,
             ),
             max_context_chars=_to_positive_int(
-                os.getenv("TERMINALAI_MAX_CONTEXT_CHARS")
-                or file_config.get("max_context_chars"),
+                os.getenv("TERMINALAI_MAX_CONTEXT_CHARS") or file_config.get("max_context_chars"),
                 default=12000,
             ),
             working_directory=(
-                os.getenv("TERMINALAI_CWD")
-                or _to_optional_string(file_config.get("cwd"))
+                os.getenv("TERMINALAI_CWD") or _to_optional_string(file_config.get("cwd"))
             ),
         )
 
@@ -207,6 +160,7 @@ def _to_safety_mode(value: str | None) -> SafetyMode | None:
         "disabled": "off",
     }
     return aliases.get(normalized)
+
 
 def _to_optional_string(value: object) -> str | None:
     if isinstance(value, str) and value.strip():

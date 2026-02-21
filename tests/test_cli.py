@@ -17,7 +17,6 @@ def _fake_config() -> AppConfig:
         safety_mode="strict",
         api_url="https://api.openai.com/v1/responses",
         log_dir="logs",
-        system_prompt="prompt",
         allow_user_feedback_pause=False,
         continuation_prompt_enabled=True,
         auto_progress_turns=True,
@@ -238,8 +237,7 @@ def test_render_turn_hides_continuation_prompt_hint_text() -> None:
             command="",
             output="",
             next_action_hint=(
-                "Model request failed with HTTP 400: Bad Request\n\n"
-                f"{cli.CONTINUATION_PROMPT_TEXT}"
+                f"Model request failed with HTTP 400: Bad Request\n\n{cli.CONTINUATION_PROMPT_TEXT}"
             ),
             turn_complete=True,
             overarching_goal_complete=True,
@@ -261,8 +259,7 @@ def test_print_turn_legacy_hides_continuation_prompt_hint_text(
             command="",
             output="",
             next_action_hint=(
-                "Model request failed with HTTP 400: Bad Request\n\n"
-                f"{cli.CONTINUATION_PROMPT_TEXT}"
+                f"Model request failed with HTTP 400: Bad Request\n\n{cli.CONTINUATION_PROMPT_TEXT}"
             ),
             continuation_prompt_added=True,
         ),
@@ -317,6 +314,7 @@ def test_main_uses_legacy_output_when_readable_cli_disabled(
     assert "[1] $ echo resumed" in out
     assert "hint: next" in out
     assert "=== Turn" not in out
+
 
 def test_main_allows_continuation_with_new_instruction(
     monkeypatch: pytest.MonkeyPatch,

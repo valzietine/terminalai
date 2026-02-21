@@ -81,31 +81,6 @@ def test_top_level_api_key_is_supported_in_config(tmp_path, monkeypatch) -> None
     assert config.api_key == "top-level-key"
 
 
-def test_system_prompt_supports_file_and_env_override(tmp_path, monkeypatch) -> None:
-    config_path = tmp_path / "terminalai.config.json"
-    config_path.write_text(
-        json.dumps({"system_prompt": "prompt from file", "default_model": "gpt-5.2"}),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
-    monkeypatch.delenv("TERMINALAI_SYSTEM_PROMPT", raising=False)
-
-    file_config = AppConfig.from_env()
-    assert file_config.system_prompt == "prompt from file"
-
-    monkeypatch.setenv("TERMINALAI_SYSTEM_PROMPT", "prompt from env")
-
-    env_config = AppConfig.from_env()
-    assert env_config.system_prompt == "prompt from env"
-
-
-def test_default_system_prompt_describes_notes_as_richer_hint() -> None:
-    assert "what is happening now" in config_module.DEFAULT_SYSTEM_PROMPT
-    assert "what just happened" in config_module.DEFAULT_SYSTEM_PROMPT
-    assert "what I will do next" in config_module.DEFAULT_SYSTEM_PROMPT
-
-
 def test_allow_user_feedback_pause_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
     config_path.write_text(
@@ -123,6 +98,7 @@ def test_allow_user_feedback_pause_loads_from_file_and_env(tmp_path, monkeypatch
 
     env_config = AppConfig.from_env()
     assert env_config.allow_user_feedback_pause is False
+
 
 def test_safety_mode_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
@@ -148,11 +124,6 @@ def test_safety_mode_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
     assert env_config.safety_mode == "allow_unsafe"
 
 
-
-
-
-
-
 def test_safety_mode_defaults_to_strict_without_canonical_keys(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
     config_path.write_text(json.dumps({"default_model": "gpt-5.2"}), encoding="utf-8")
@@ -163,6 +134,7 @@ def test_safety_mode_defaults_to_strict_without_canonical_keys(tmp_path, monkeyp
     config = AppConfig.from_env()
 
     assert config.safety_mode == "strict"
+
 
 def test_boolean_config_fields_accept_string_values(tmp_path, monkeypatch) -> None:
     config_path = tmp_path / "terminalai.config.json"
@@ -215,7 +187,6 @@ def test_continuation_prompt_setting_loads_from_file_and_env(tmp_path, monkeypat
 
     env_config = AppConfig.from_env()
     assert env_config.continuation_prompt_enabled is True
-
 
 
 def test_auto_progress_turns_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
