@@ -7,7 +7,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
-from terminalai.agent.models import AgentStep, ExecutionResult, SessionTurn
+from terminalai.agent.models import AgentStep, ExecutionResult, SessionTurn, VerificationResult
 from terminalai.config import SafetyMode
 from terminalai.llm.client import LLMClient
 from terminalai.shell import ShellAdapter
@@ -297,11 +297,31 @@ class AgentLoop:
                     safety_mode=self.safety_mode,
                     returncode=command_result.returncode,
                 )
+
             result = ExecutionResult(
                 stdout=command_result.stdout,
                 stderr=command_result.stderr,
                 returncode=command_result.returncode,
                 duration=command_result.duration_seconds,
+            )
+            verification = self._classify_verification_result(
+                result=result,
+                blocked=command_result.blocked,
+            )
+            self._append_context_event(
+                context_events,
+                event_type=(
+                    "verification_passed"
+                    if verification.status == "success"
+                    else "verification_failed"
+                ),
+                goal=goal,
+                command=step.proposed_command,
+                phase=step.phase,
+                status=verification.status,
+                signal=verification.signal,
+                details=verification.details,
+                returncode=result.returncode,
             )
             output = self._format_result(result)
             if step.phase == PHASE_MUTATION:
@@ -429,6 +449,65 @@ class AgentLoop:
         if "confirmation" in reason_source or "requires explicit confirmation" in reason_source:
             return "requires_confirmation"
         return "unknown"
+
+    @classmethod
+    def _classify_verification_result(
+        cls, *, result: ExecutionResult, blocked: bool = False
+    ) -> VerificationResult:
+        if blocked:
+            return VerificationResult(
+                status="blocked_by_policy",
+                signal="guardrail_block",
+                details=cls._trim_detail(result.stderr),
+            )
+
+        if result.returncode == 0:
+            return VerificationResult(
+                status="success",
+                signal="zero_exit",
+                details="Command exited successfully.",
+            )
+
+        stderr = result.stderr.lower()
+        if any(token in stderr for token in ("assert", "expect", "expected", "failed")):
+            return VerificationResult(
+                status="failed_assertion",
+                signal="assertion_detected",
+                details=cls._trim_detail(result.stderr),
+            )
+
+        if any(
+            token in stderr
+            for token in (
+                "not found",
+                "no such file",
+                "permission denied",
+                "timed out",
+                "timeout",
+                "network",
+                "connection refused",
+                "temporary failure",
+            )
+        ):
+            return VerificationResult(
+                status="environment_error",
+                signal="runtime_environment_issue",
+                details=cls._trim_detail(result.stderr),
+            )
+
+        return VerificationResult(
+            status="environment_error",
+            signal="non_zero_exit",
+            details=cls._trim_detail(result.stderr),
+        )
+
+    @staticmethod
+    def _trim_detail(stderr: str) -> str:
+        detail = stderr.strip()
+        if not detail:
+            return "No stderr output captured."
+        first_line = detail.splitlines()[0]
+        return first_line[:240]
 
     @staticmethod
     def _format_result(result: ExecutionResult) -> str:

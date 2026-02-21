@@ -7,6 +7,12 @@ from typing import Literal
 
 DecisionPhase = Literal["analysis", "mutation", "verification", "completion"]
 RiskLevel = Literal["low", "medium", "high"]
+VerificationStatus = Literal[
+    "success",
+    "failed_assertion",
+    "environment_error",
+    "blocked_by_policy",
+]
 
 
 @dataclass(slots=True)
@@ -29,6 +35,15 @@ class ExecutionResult:
     stderr: str
     returncode: int
     duration: float
+
+
+@dataclass(slots=True)
+class VerificationResult:
+    """Classification of command outcome for verification-aware branching."""
+
+    status: VerificationStatus
+    signal: str
+    details: str
 
 
 @dataclass(slots=True)

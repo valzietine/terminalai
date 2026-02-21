@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+import pytest
+
 from terminalai.agent.loop import CONTINUATION_PROMPT_TEXT, AgentLoop
 from terminalai.agent.models import SessionTurn
 from terminalai.llm.client import ModelDecision
@@ -786,3 +788,96 @@ def test_agent_loop_includes_prior_turns_in_session_context(tmp_path) -> None:
 
     assert len(turns) == 1
     assert turns[0].turn_complete is True
+
+
+class VerificationOutcomeClient:
+    def __init__(self, command: str = "echo verify") -> None:
+        self.calls = 0
+        self.command = command
+        self.contexts: list[list[dict[str, object]]] = []
+
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        self.calls += 1
+        self.contexts.append(session_context)
+        if self.calls == 1:
+            return ModelDecision(command=self.command, notes="run", complete=False)
+        return ModelDecision(command=None, notes="done", complete=True)
+
+
+class VerificationOutcomeShell(FakeShell):
+    def __init__(self, result: FakeResult) -> None:
+        super().__init__()
+        self._result = result
+
+    def execute(
+        self,
+        command: str,
+        *,
+        cwd: str | None = None,
+        confirmed: bool = False,
+    ) -> FakeResult:
+        self.commands.append(command)
+        self.working_directories.append(cwd)
+        self.confirmed_calls.append(confirmed)
+        return self._result
+
+
+@pytest.mark.parametrize(
+    ("result", "event_type", "status", "signal"),
+    [
+        (
+            FakeResult(stdout="ok", stderr="", returncode=0),
+            "verification_passed",
+            "success",
+            "zero_exit",
+        ),
+        (
+            FakeResult(stdout="", stderr="AssertionError: expected 2 got 3", returncode=1),
+            "verification_failed",
+            "failed_assertion",
+            "assertion_detected",
+        ),
+        (
+            FakeResult(stdout="", stderr="pytest: command not found", returncode=127),
+            "verification_failed",
+            "environment_error",
+            "runtime_environment_issue",
+        ),
+        (
+            FakeResult(
+                stdout="",
+                stderr="command blocked by denylist policy",
+                returncode=126,
+                blocked=True,
+                block_reason="command blocked by denylist policy",
+            ),
+            "verification_failed",
+            "blocked_by_policy",
+            "guardrail_block",
+        ),
+    ],
+)
+def test_agent_loop_emits_verification_event_with_classification(
+    tmp_path,
+    result: FakeResult,
+    event_type: str,
+    status: str,
+    signal: str,
+) -> None:
+    shell = VerificationOutcomeShell(result=result)
+    client = VerificationOutcomeClient()
+    loop = AgentLoop(client=client, shell=shell, log_dir=tmp_path, max_steps=2)
+
+    turns = loop.run("verify command")
+
+    assert len(turns) == 2
+    verification_events = [
+        event
+        for event in client.contexts[1]
+        if event.get("type") in {"verification_passed", "verification_failed"}
+    ]
+    assert len(verification_events) == 1
+    assert verification_events[0]["type"] == event_type
+    assert verification_events[0]["status"] == status
+    assert verification_events[0]["signal"] == signal
+    assert verification_events[0]["returncode"] == result.returncode
