@@ -19,6 +19,10 @@ env/
 .ruff_cache/
 .mypy_cache/
 
+# Logs
+logs/
+*.log
+
 # Editors / IDEs
 .vscode/
 .idea/
