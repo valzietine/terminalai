@@ -34,6 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--cwd",
         help="Starting working directory for executed commands (defaults to current directory)",
     )
+    parser.add_argument(
+        "--allow-user-feedback-pause",
+        action="store_true",
+        help="Allow the model to pause and ask one important question when blocked",
+    )
     return parser
 
 
@@ -62,6 +67,9 @@ def main() -> int:
         system_prompt=config.system_prompt,
         reasoning_effort=config.reasoning_effort,
         api_url=config.api_url,
+        allow_user_feedback_pause=(
+            args.allow_user_feedback_pause or config.allow_user_feedback_pause
+        ),
     )
     loop = AgentLoop(
         client=client,
@@ -77,6 +85,11 @@ def main() -> int:
         return 0
 
     for idx, turn in enumerate(turns, start=1):
+        if turn.awaiting_user_feedback:
+            print(f"[{idx}] model paused and needs user input")
+            if turn.next_action_hint:
+                print(f"question: {turn.next_action_hint}")
+            continue
         print(f"[{idx}] $ {turn.command}")
         print(turn.output)
         if turn.next_action_hint:

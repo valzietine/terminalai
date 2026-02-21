@@ -55,6 +55,7 @@ class AppConfig:
     api_url: str
     log_dir: str
     system_prompt: str
+    allow_user_feedback_pause: bool
 
     @classmethod
     def from_env(cls) -> AppConfig:
@@ -103,6 +104,10 @@ class AppConfig:
                 os.getenv("TERMINALAI_SYSTEM_PROMPT")
                 or _to_optional_string(file_config.get("system_prompt"))
                 or DEFAULT_SYSTEM_PROMPT
+            ),
+            allow_user_feedback_pause=_to_bool(
+                os.getenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE"),
+                default=bool(file_config.get("allow_user_feedback_pause", False)),
             ),
         )
 

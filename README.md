@@ -54,6 +54,7 @@ The MVP intentionally prioritizes direct execution and does not add command gati
 - `--model <name>`: override model from environment
 - `--max-steps <n>`: cap model-execution iterations (default: `20`)
 - `--cwd <path>`: set the starting working directory for command execution (must exist and be a directory)
+- `--allow-user-feedback-pause`: allow the model to pause execution and ask one important blocking question
 
 Example:
 
@@ -71,6 +72,7 @@ terminalai --shell cmd --model gpt-5.2-codex --max-steps 10 "Create a TODO.txt w
 - `TERMINALAI_CONFIG_FILE`: path to JSON config file (default: `terminalai.config.json`).
 - `TERMINALAI_LOG_DIR`: directory for session logs (default: `logs`).
 - `TERMINALAI_SYSTEM_PROMPT`: override the system prompt sent to the model.
+- `TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE`: when true, allows the model to pause and ask one critical question if blocked.
 - `TERMINALAI_SAFETY_ENABLED`: parsed but currently not enforced in the MVP execution path.
 - `TERMINALAI_ALLOW_UNSAFE`: parsed but currently not enforced in the MVP execution path.
 

@@ -28,6 +28,7 @@ def test_app_config_loads_openai_and_model_reasoning_from_file(tmp_path, monkeyp
     assert config.model == "gpt-5.2-codex"
     assert config.reasoning_effort == "medium"
     assert config.log_dir == "test-logs"
+    assert config.allow_user_feedback_pause is False
 
 
 def test_env_overrides_reasoning_effort(tmp_path, monkeypatch) -> None:
@@ -93,3 +94,22 @@ def test_system_prompt_supports_file_and_env_override(tmp_path, monkeypatch) -> 
 
     env_config = AppConfig.from_env()
     assert env_config.system_prompt == "prompt from env"
+
+
+def test_allow_user_feedback_pause_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"allow_user_feedback_pause": True, "default_model": "gpt-5.2"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE", raising=False)
+
+    file_config = AppConfig.from_env()
+    assert file_config.allow_user_feedback_pause is True
+
+    monkeypatch.setenv("TERMINALAI_ALLOW_USER_FEEDBACK_PAUSE", "false")
+
+    env_config = AppConfig.from_env()
+    assert env_config.allow_user_feedback_pause is False

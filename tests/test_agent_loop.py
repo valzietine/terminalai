@@ -67,3 +67,28 @@ def test_agent_loop_executes_and_logs(tmp_path) -> None:
     lines = log_files[0].read_text(encoding="utf-8").strip().splitlines()
     payload = json.loads(lines[0])
     assert payload["command"] == "echo hi"
+
+
+class FakeQuestionClient:
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        assert goal == "need input"
+        assert session_context == []
+        return ModelDecision(
+            command=None,
+            notes=None,
+            complete=False,
+            ask_user=True,
+            user_question="Which environment should I target?",
+        )
+
+
+def test_agent_loop_can_pause_for_user_feedback(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=FakeQuestionClient(), shell=shell, log_dir=tmp_path)
+
+    turns = loop.run("need input")
+
+    assert shell.commands == []
+    assert len(turns) == 1
+    assert turns[0].awaiting_user_feedback is True
+    assert turns[0].next_action_hint == "Which environment should I target?"
