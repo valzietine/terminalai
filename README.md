@@ -7,6 +7,7 @@ This program enables an LLM from an API like OpenAI to interface with a user's t
 - Minimal orchestration loop that cycles model suggestion -> command execution -> model feedback.
 - Default CLI behavior is direct terminal orchestration.
 - Lightweight session logs are written to `logs/` (or `TERMINALAI_LOG_DIR`) with command/output/timestamps.
+- Command execution starts in the caller's current working directory at launch time unless `--cwd` is provided; the model does not choose the starting directory.
 
 ## Safety posture
 
@@ -52,6 +53,7 @@ The MVP intentionally prioritizes direct execution and does not add command gati
 - `--shell {cmd,powershell}`: choose shell adapter (default: `powershell`)
 - `--model <name>`: override model from environment
 - `--max-steps <n>`: cap model-execution iterations (default: `20`)
+- `--cwd <path>`: set the starting working directory for command execution (must exist and be a directory)
 
 Example:
 

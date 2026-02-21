@@ -20,9 +20,17 @@ class FakeShell:
 
     def __init__(self) -> None:
         self.commands: list[str] = []
+        self.working_directories: list[str | None] = []
 
-    def execute(self, command: str, *, confirmed: bool = False) -> FakeResult:  # noqa: ARG002
+    def execute(
+        self,
+        command: str,
+        *,
+        cwd: str | None = None,
+        confirmed: bool = False,
+    ) -> FakeResult:  # noqa: ARG002
         self.commands.append(command)
+        self.working_directories.append(cwd)
         return FakeResult(stdout="ok", stderr="", returncode=0)
 
 
@@ -40,11 +48,19 @@ class FakeClient:
 
 
 def test_agent_loop_executes_and_logs(tmp_path) -> None:
-    loop = AgentLoop(client=FakeClient(), shell=FakeShell(), log_dir=tmp_path, max_steps=3)
+    shell = FakeShell()
+    loop = AgentLoop(
+        client=FakeClient(),
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=3,
+        working_directory="/tmp/workspace",
+    )
 
     turns = loop.run("list files")
 
     assert len(turns) == 1
+    assert shell.working_directories == ["/tmp/workspace"]
     assert turns[0].command == "echo hi"
     log_files = list(tmp_path.glob("session-*.log"))
     assert len(log_files) == 1

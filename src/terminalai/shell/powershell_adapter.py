@@ -35,6 +35,7 @@ class PowerShellAdapter(ShellAdapter):
         self,
         command: str,
         *,
+        cwd: str | None = None,
         timeout: float | None = None,
         dry_run: bool = False,
         confirmed: bool = False,
@@ -72,6 +73,7 @@ class PowerShellAdapter(ShellAdapter):
             process = subprocess.run(
                 [self.executable, "-NoProfile", "-NonInteractive", "-Command", command],
                 capture_output=True,
+                cwd=cwd,
                 timeout=timeout,
                 check=False,
                 text=False,
