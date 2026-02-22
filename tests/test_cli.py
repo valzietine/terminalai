@@ -230,6 +230,31 @@ def test_render_turn_trims_trailing_output_whitespace() -> None:
     assert not rendered.endswith("\n")
 
 
+def test_render_turn_adds_spacing_between_sections() -> None:
+    rendered = cli._render_turn(
+        SessionTurn(
+            input="goal",
+            command="echo hi",
+            output=(
+                "returncode=0\n"
+                "duration=0.0100s\n\n"
+                "stdout:\n"
+                "hello\n\n"
+                "stderr:\n"
+            ),
+            next_action_hint="Done",
+            turn_complete=True,
+            overarching_goal_complete=True,
+        ),
+        1,
+    )
+
+    assert "\n=== Turn 1 (completed) ===\n" in rendered
+    assert "[command]\n\necho hi\n\n[output]" in rendered
+    assert "stdout:\nhello\n\nstderr:" in rendered
+    assert "\n\n[hint]\n\nDone" in rendered
+
+
 def test_render_turn_hides_continuation_prompt_hint_text() -> None:
     rendered = cli._render_turn(
         SessionTurn(
