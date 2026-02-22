@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import platform
+import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,6 +64,7 @@ class AgentLoop:
         turns: list[SessionTurn] = []
         historical_turns = list(prior_turns) if prior_turns else []
         context_events: list[ContextEvent] = []
+        context_events.append(self._runtime_context_event(goal))
         safety_policy_context = self._safety_policy_context()
 
         exhausted_step_budget = True
@@ -594,6 +597,21 @@ class AgentLoop:
                 "Plan execution with the remaining step budget in mind and avoid unnecessary"
                 " commands."
             ),
+        }
+
+    def _runtime_context_event(self, goal: str) -> ContextEvent:
+        return {
+            "type": "runtime_context",
+            "goal": goal,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "shell_adapter": getattr(self.shell, "name", self.shell.__class__.__name__),
+            "working_directory": self.working_directory or "",
+            "safety_mode": self.safety_mode,
+            "sys_platform": sys.platform,
+            "platform": platform.platform(),
+            "platform_system": platform.system(),
+            "platform_release": platform.release(),
+            "python_version": platform.python_version(),
         }
 
     def _emit_turn(self, turn: SessionTurn) -> None:
