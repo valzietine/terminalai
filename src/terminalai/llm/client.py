@@ -28,6 +28,10 @@ DEFAULT_SYSTEM_PROMPT = " ".join(
             " command to null and complete to true."
         ),
         (
+            "Return only the command body for the selected shell; do not wrap"
+            " commands with shell launchers like 'powershell -Command' or 'bash -lc'."
+        ),
+        (
             "Always return strict JSON with keys: command (string or null),"
             " notes (string or null), complete (boolean), phase"
             " (analysis|mutation|verification|completion), expected_outcome"
