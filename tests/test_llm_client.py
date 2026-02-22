@@ -48,8 +48,11 @@ def test_payload_uses_hardcoded_system_prompt() -> None:
     client = LLMClient(api_key=None, model="gpt-5.2")
 
     payload = client._build_payload("test goal", [])
+    system_prompt = payload["input"][0]["content"]
 
-    assert "expert terminal orchestration assistant" in payload["input"][0]["content"]
+    assert "expert terminal orchestration assistant" in system_prompt
+    assert "do not wrap" in system_prompt
+    assert "powershell -Command" in system_prompt
 
 
 def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
