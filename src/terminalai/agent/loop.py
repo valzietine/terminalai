@@ -72,7 +72,12 @@ class AgentLoop:
         verification_required = False
         final_completion_log: tuple[SessionTurn, int, bool] | None = None
         for step_index in range(self.max_steps):
-            if not self.auto_progress_turns and self.request_turn_progress:
+            should_prompt_for_progress = step_index > 0 or bool(historical_turns)
+            if (
+                not self.auto_progress_turns
+                and self.request_turn_progress
+                and should_prompt_for_progress
+            ):
                 should_continue, instruction = self.request_turn_progress(step_index + 1)
                 if isinstance(instruction, str) and instruction.strip():
                     self._append_context_event(
