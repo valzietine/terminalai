@@ -249,8 +249,16 @@ def test_next_command_returns_safe_decision_when_missing_output_text(monkeypatch
     decision = client.next_command("test", [])
 
     assert decision.command is None
-    assert decision.complete is True
+    assert decision.complete is False
     assert decision.notes == "No structured output returned"
+
+
+def test_extract_output_json_marks_incomplete_when_output_is_missing() -> None:
+    parsed = LLMClient._extract_output_json({"id": "resp_123"})
+
+    assert parsed["command"] is None
+    assert parsed["complete"] is False
+    assert parsed["notes"] == "No structured output returned"
 
 
 def test_next_command_http_error_includes_response_excerpt(monkeypatch) -> None:
