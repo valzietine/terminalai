@@ -224,8 +224,8 @@ class AgentLoop:
                     output=(
                         "returncode=130\n"
                         "duration=0.0000s\n"
-                        "stdout:\n\n"
-                        "stderr:\n"
+                        "\nstdout:\n\n"
+                        "\nstderr:\n"
                         "User declined destructive command execution."
                     ),
                     next_action_hint=(
@@ -492,8 +492,8 @@ class AgentLoop:
         return (
             f"returncode={result.returncode}\n"
             f"duration={result.duration:.4f}s\n"
-            f"stdout:\n{result.stdout}\n"
-            f"stderr:\n{result.stderr}"
+            f"\nstdout:\n{result.stdout}\n"
+            f"\nstderr:\n{result.stderr}"
         )
 
     def _append_log(

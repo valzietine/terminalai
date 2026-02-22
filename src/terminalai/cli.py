@@ -198,28 +198,34 @@ def _render_turn(turn: SessionTurn, idx: int) -> str:
         awaiting_user_feedback=turn.awaiting_user_feedback,
         run_terminal=turn.overarching_goal_complete,
     )
-    lines = [f"=== Turn {idx} ({status}) ==="]
+    lines = ["", f"=== Turn {idx} ({status}) ===", ""]
 
     if turn.command:
         lines.append("[command]")
+        lines.append("")
         lines.append(turn.command)
+        lines.append("")
 
     output = turn.output.rstrip()
     if output:
         lines.append("[output]")
+        lines.append("")
         lines.append(output)
+        lines.append("")
 
     if turn.awaiting_user_feedback:
         lines.append("[question]")
+        lines.append("")
         lines.append(turn.next_action_hint or "(no question provided)")
     else:
         display_hint = _display_hint(turn)
         if not display_hint:
-            return "\n".join(lines)
+            return "\n".join(lines).rstrip()
         lines.append("[hint]")
+        lines.append("")
         lines.append(display_hint)
 
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
 def _print_turn_legacy(turn: SessionTurn, idx: int) -> None:

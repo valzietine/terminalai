@@ -91,17 +91,26 @@ terminalai --cwd ~/projects/demo "Create a TODO.txt with three tasks"
 By default (`readable_cli_output: true`), `terminalai` prints each turn using labeled sections so in-progress and completed states are easier to scan. For example:
 
 ```text
+
 === Turn 1 (running) ===
+
 [command]
+
 ls -la
+
 [output]
+
 returncode=0
 duration=0.1090s
+
 stdout:
 total 75
 ...
+
 stderr:
+
 [hint]
+
 Listing all files (including hidden) in the current directory so I can summarize what’s here.
 ```
 
