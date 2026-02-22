@@ -568,15 +568,44 @@ def test_agent_loop_pauses_between_turns_when_auto_progress_disabled(tmp_path) -
     turns = loop.run("list files")
 
     assert len(turns) == 2
+    assert prompts == [2]
+    turn_instruction_events = [
+        event for event in client.contexts[0] if event.get("type") == "user_turn_instruction"
+    ]
+    assert turn_instruction_events == []
+
+
+def test_agent_loop_requests_progress_on_first_step_when_resuming_prior_turns(tmp_path) -> None:
+    shell = FakeShell()
+    client = FakeClient()
+    prompts: list[int] = []
+
+    def request_turn_progress(step_number: int) -> tuple[bool, str | None]:
+        prompts.append(step_number)
+        return True, "Resume from the previous context"
+
+    loop = AgentLoop(
+        client=client,
+        shell=shell,
+        log_dir=tmp_path,
+        max_steps=2,
+        auto_progress_turns=False,
+        request_turn_progress=request_turn_progress,
+    )
+
+    prior_turn = SessionTurn(input="list files", command="pwd", output="/tmp")
+    turns = loop.run("list files", prior_turns=[prior_turn])
+
+    assert len(turns) == 2
     assert prompts == [1, 2]
     turn_instruction_events = [
         event for event in client.contexts[0] if event.get("type") == "user_turn_instruction"
     ]
     assert len(turn_instruction_events) == 1
-    assert turn_instruction_events[0]["instruction"] == "Only inspect top-level files first"
+    assert turn_instruction_events[0]["instruction"] == "Resume from the previous context"
 
 
-def test_agent_loop_stops_when_user_declines_to_progress(tmp_path) -> None:
+def test_agent_loop_stops_after_first_turn_when_user_declines_to_progress(tmp_path) -> None:
     shell = FakeShell()
 
     loop = AgentLoop(
@@ -585,13 +614,13 @@ def test_agent_loop_stops_when_user_declines_to_progress(tmp_path) -> None:
         log_dir=tmp_path,
         max_steps=2,
         auto_progress_turns=False,
-        request_turn_progress=lambda _step: (False, None),
+        request_turn_progress=lambda step: (step < 2, None),
     )
 
     turns = loop.run("list files")
 
-    assert turns == []
-    assert shell.commands == []
+    assert len(turns) == 1
+    assert shell.commands == ["echo hi"]
 
 
 class MutationThenCompletionClient:
