@@ -191,6 +191,30 @@ class CompletionOnlyClient:
         return ModelDecision(command=None, notes="all done", complete=True)
 
 
+
+
+class FollowUpRequiredClient:
+    def next_command(self, goal: str, session_context: list[dict[str, object]]) -> ModelDecision:
+        assert goal == "summarize"
+        assert session_context[-1]["type"] == "safety_policy"
+        return ModelDecision(command=None, notes="No structured output returned", complete=False)
+
+
+def test_agent_loop_treats_missing_structured_output_as_follow_up(tmp_path) -> None:
+    shell = FakeShell()
+    loop = AgentLoop(client=FollowUpRequiredClient(), shell=shell, log_dir=tmp_path, max_steps=1)
+
+    turns = loop.run("summarize")
+
+    assert shell.commands == []
+    assert len(turns) == 1
+    assert turns[0].command == ""
+    assert turns[0].next_action_hint == "No structured output returned"
+    assert turns[0].subtask_complete is False
+    assert turns[0].overarching_goal_complete is False
+
+    assert list(tmp_path.glob("session-*.log")) == []
+
 def test_agent_loop_logs_explicit_completion_only_turn(tmp_path) -> None:
     shell = FakeShell()
     loop = AgentLoop(client=CompletionOnlyClient(), shell=shell, log_dir=tmp_path, max_steps=1)

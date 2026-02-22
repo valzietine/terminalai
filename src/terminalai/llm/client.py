@@ -290,7 +290,7 @@ class LLMClient:
     def _extract_output_json(cls, payload: dict[str, object]) -> dict[str, object]:
         output_items = payload.get("output")
         if not isinstance(output_items, list):
-            return {"command": None, "notes": "No structured output returned", "complete": True}
+            return {"command": None, "notes": "No structured output returned", "complete": False}
 
         for item in output_items:
             item_object = cls._coerce_object_dict(item)
@@ -310,7 +310,7 @@ class LLMClient:
                     if parsed is not None:
                         return parsed
                     break
-        return {"command": None, "notes": "No structured output returned", "complete": True}
+        return {"command": None, "notes": "No structured output returned", "complete": False}
 
     @staticmethod
     def _safe_failure_decision(notes: str) -> ModelDecision:
