@@ -53,6 +53,8 @@ def test_payload_uses_hardcoded_system_prompt() -> None:
     assert "expert terminal orchestration assistant" in system_prompt
     assert "do not wrap" in system_prompt
     assert "powershell -Command" in system_prompt
+    assert "runtime_context.shell_adapter" in system_prompt
+    assert "never backslash-escaped quotes like \\\"" in system_prompt
 
 
 def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
@@ -98,6 +100,7 @@ def test_payload_user_message_formats_goal_and_context() -> None:
     assert "what is happening now" in user_message
     assert "what just happened" in user_message
     assert "what I will do next" in user_message
+    assert "Read runtime_context.shell_adapter first" in user_message
 
 
 def test_payload_trims_session_context_to_max_chars() -> None:
