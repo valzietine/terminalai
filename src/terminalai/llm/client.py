@@ -39,6 +39,21 @@ DEFAULT_SYSTEM_PROMPT = " ".join(
             " risk_level (low|medium|high or null)."
         ),
         (
+            "Respect the active shell in runtime_context.shell_adapter"
+            " (cmd|powershell|bash) and emit syntax that is valid for that"
+            " shell only."
+        ),
+        (
+            "Shell rules: cmd uses double quotes and caret escaping (^), never"
+            " backslash-escaped quotes like \\\"; powershell prefers single"
+            " quotes for literals and here-strings for longer scripts; bash uses"
+            " POSIX quoting (single quotes for literals)."
+        ),
+        (
+            "Before emitting complex one-liners, prefer a short probe command to"
+            " validate syntax in the active shell and then continue."
+        ),
+        (
             "Use notes as a concise hint that explains what is happening now,"
             " what just happened, and what I will do next, unless the goal is"
             " complete."
@@ -272,6 +287,8 @@ class LLMClient:
             "Session context (ordered oldest to newest):\n"
             f"{context_json}\n\n"
             "Use both the goal and context to decide the next safest, most useful step."
+            " Read runtime_context.shell_adapter first and align quoting/operators with"
+            " that shell."
             " Set notes to a concise hint that explains what is happening now, what"
             " just happened, and what I will do next for the immediate step; avoid"
             " discussing unrelated internal mistakes."
