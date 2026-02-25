@@ -54,6 +54,7 @@ def test_payload_uses_hardcoded_system_prompt() -> None:
     assert "do not wrap" in system_prompt
     assert "powershell -Command" in system_prompt
     assert "runtime_context.shell_adapter" in system_prompt
+    assert "observations from the last command output" in system_prompt
 
 
 def test_payload_includes_shell_specific_guidance_for_cmd_only() -> None:
@@ -143,6 +144,7 @@ def test_payload_user_message_formats_goal_and_context() -> None:
     assert '"type": "step_budget"' in user_message
     assert "what is happening now" in user_message
     assert "what just happened" in user_message
+    assert "observations from the last command output" in user_message
     assert "what I will do next" in user_message
     assert "Read runtime_context.shell_adapter first" in user_message
 

@@ -47,8 +47,8 @@ BASE_SYSTEM_PROMPT_PARTS = [
     ),
     (
         "Use notes as a concise hint that explains what is happening now,"
-        " what just happened, and what I will do next, unless the goal is"
-        " complete."
+        " what just happened (including observations from the last command"
+        " output), and what I will do next, unless the goal is complete."
     ),
 ]
 
@@ -302,7 +302,8 @@ class LLMClient:
             " Read runtime_context.shell_adapter first and align quoting/operators with"
             " that shell."
             " Set notes to a concise hint that explains what is happening now, what"
-            " just happened, and what I will do next for the immediate step; avoid"
+            " just happened (including observations from the last command output),"
+            " and what I will do next for the immediate step; avoid"
             " discussing unrelated internal mistakes."
         )
 
