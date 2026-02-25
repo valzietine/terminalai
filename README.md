@@ -148,6 +148,14 @@ Press Enter to proceed to the next turn, type a short instruction to steer that 
 or enter `q` to stop the run. Per-turn instructions are injected into model context before the
 next command proposal.
 
+When `TERMINALAI_ELEVATE_PROCESS=true`, `terminalai` attempts to run commands with elevated/admin privileges. This is opt-in and disabled by default.
+
+- On POSIX shells (`bash` adapter), terminalai prefixes commands with `sudo --` when possible (and only when the command is not already elevated).
+- On Windows (`cmd`/`powershell` adapters), terminalai uses a UAC elevation path (`Start-Process -Verb RunAs`). This launches a new elevated process boundary, so child stdout/stderr and exact exit status can be limited compared with non-elevated runs.
+- If the platform/shell combination cannot elevate (for example, missing `sudo` on POSIX or non-Windows elevation request for Windows shells), terminalai falls back to non-elevated execution and reports a warning in command output/logs.
+
+Use elevation carefully: elevated commands can make system-wide changes and may trigger UAC/password prompts depending on OS policy.
+
 When the model marks the **overarching goal** complete, terminalai appends a continuation question to the final assistant hint:
 
 ```text
@@ -174,6 +182,7 @@ At startup, `terminalai` does not preload repository files (such as `README.md`)
 - `TERMINALAI_AUTO_PROGRESS_TURNS`: when `true` (default), model turns run continuously; when `false`, the CLI pauses before each turn and waits for Enter/instructions.
 - `TERMINALAI_READABLE_CLI_OUTPUT`: when `true` (default), print structured turn sections (`[command]`, `[output]`, `[hint]/[question]`); when `false`, use legacy plain output.
 - `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
+- `TERMINALAI_ELEVATE_PROCESS`: when `true`, request elevated/admin command execution paths for the active shell adapter (default: `false`).
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_MAX_CONTEXT_CHARS`: maximum number of serialized `session_context` characters included per model request (default `12000`).
 - `TERMINALAI_CWD`: starting working directory for command execution.
@@ -217,6 +226,7 @@ or platform defaults at runtime.
   "continuation_prompt_enabled": true,
   "auto_progress_turns": true,
   "readable_cli_output": true,
+  "elevate_process": false,
   "safety_mode": "strict",
   "shell": null,
   "max_steps": 20,

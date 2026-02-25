@@ -21,6 +21,7 @@ def _fake_config() -> AppConfig:
         continuation_prompt_enabled=True,
         auto_progress_turns=True,
         readable_cli_output=True,
+        elevate_process=False,
         shell="powershell",
         max_steps=20,
         max_context_chars=12000,
@@ -56,7 +57,7 @@ def test_main_rejects_invalid_cwd_from_config(
         config.working_directory = "./definitely-missing-dir"
         return config
 
-    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name, **_kwargs: FakeAdapter())
     monkeypatch.setattr(
         cli,
         "AppConfig",
@@ -89,7 +90,7 @@ def test_main_passes_resolved_cwd_to_loop(tmp_path: Path, monkeypatch: pytest.Mo
         config.working_directory = str(tmp_path)
         return config
 
-    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name, **_kwargs: FakeAdapter())
     monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
     monkeypatch.setattr(
         cli,
@@ -130,7 +131,7 @@ def test_main_cwd_cli_override_takes_precedence(
         config.working_directory = "./ignored-from-config"
         return config
 
-    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name, **_kwargs: FakeAdapter())
     monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
     monkeypatch.setattr(
         cli,
@@ -174,7 +175,7 @@ def test_main_collects_feedback_and_prints_resumed_output(
                 ),
             ]
 
-    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name, **_kwargs: FakeAdapter())
     monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
     monkeypatch.setattr(
         cli,
@@ -325,7 +326,7 @@ def test_main_uses_legacy_output_when_readable_cli_disabled(
         config.readable_cli_output = False
         return config
 
-    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name, **_kwargs: FakeAdapter())
     monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
     monkeypatch.setattr(
         cli,
@@ -371,7 +372,7 @@ def test_main_adds_spacing_around_turn_output_when_auto_progress_disabled(
         config.auto_progress_turns = False
         return config
 
-    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name, **_kwargs: FakeAdapter())
     monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
     monkeypatch.setattr(
         cli,
@@ -427,7 +428,7 @@ def test_main_allows_continuation_with_new_instruction(
                 )
             ]
 
-    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name, **_kwargs: FakeAdapter())
     monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
     monkeypatch.setattr(
         cli,
@@ -443,3 +444,43 @@ def test_main_allows_continuation_with_new_instruction(
     out = capsys.readouterr().out
     assert "=== Turn 1" in out
     assert "=== Turn 2" in out
+
+
+def test_main_passes_elevation_flag_to_shell_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_argv = ["terminalai", "list files"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    captured: dict[str, object] = {}
+
+    class FakeAdapter:
+        name = "fake"
+        elevation_enabled = True
+
+    class FakeLoop:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def run(self, _goal: str, **_kwargs: object) -> list[SessionTurn]:
+            return []
+
+    def fake_create_shell_adapter(name: str, **kwargs: object) -> FakeAdapter:
+        captured["name"] = name
+        captured["kwargs"] = kwargs
+        return FakeAdapter()
+
+    def fake_config_with_elevation() -> AppConfig:
+        cfg = _fake_config()
+        cfg.elevate_process = True
+        return cfg
+
+    monkeypatch.setattr(cli, "create_shell_adapter", fake_create_shell_adapter)
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(fake_config_with_elevation)}),
+    )
+
+    assert cli.main() == 0
+    assert captured["name"] == "powershell"
+    assert captured["kwargs"] == {"elevate_process": True}
