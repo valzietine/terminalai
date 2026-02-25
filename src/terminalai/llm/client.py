@@ -144,6 +144,18 @@ class LLMClient:
                 },
             )
             return self._safe_failure_decision(f"Model request transport error: {exc.reason}")
+        except TimeoutError:
+            LOGGER.error(
+                "llm_request_timeout",
+                extra={
+                    "api_url": self.api_url,
+                    "model": self.model,
+                    "timeout_seconds": self.timeout,
+                },
+            )
+            return self._safe_failure_decision(
+                f"Model request timed out after {self.timeout:.1f}s"
+            )
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             LOGGER.error(
                 "llm_response_parse_error",
