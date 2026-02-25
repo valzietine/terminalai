@@ -286,3 +286,18 @@ def test_next_command_http_error_includes_response_excerpt(monkeypatch) -> None:
 
     assert "HTTP 400" in (decision.notes or "")
     assert "invalid schema" in (decision.notes or "")
+
+
+def test_next_command_returns_safe_decision_on_timeout(monkeypatch) -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2", timeout=12.5)
+
+    def fake_urlopen(*_args, **_kwargs):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr("terminalai.llm.client.request.urlopen", fake_urlopen)
+
+    decision = client.next_command("test", [])
+
+    assert decision.command is None
+    assert decision.complete is False
+    assert decision.notes == "Model request timed out after 12.5s"
