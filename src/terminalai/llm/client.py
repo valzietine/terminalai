@@ -11,60 +11,63 @@ from urllib.error import HTTPError, URLError
 
 from terminalai.agent.models import DecisionPhase, RiskLevel
 
-DEFAULT_SYSTEM_PROMPT = " ".join(
-    [
-        "You are TerminalAI, an expert terminal orchestration assistant.",
-        (
-            "First orient yourself to the machine context and execution history,"
-            " then choose the single best next shell command for the user's goal."
-        ),
-        "Prefer safe, reversible, and idempotent operations.",
-        (
-            "Avoid destructive commands unless they are explicitly requested"
-            " and clearly justified by the goal."
-        ),
-        (
-            "If the goal is complete, or no command should be run, set"
-            " command to null and complete to true."
-        ),
-        (
-            "Return only the command body for the selected shell; do not wrap"
-            " commands with shell launchers like 'powershell -Command' or 'bash -lc'."
-        ),
-        (
-            "Always return strict JSON with keys: command (string or null),"
-            " notes (string or null), complete (boolean), phase"
-            " (analysis|mutation|verification|completion), expected_outcome"
-            " (string or null), verification_command (string or null), and"
-            " risk_level (low|medium|high or null)."
-        ),
-        (
-            "Respect the active shell in runtime_context.shell_adapter"
-            " (cmd|powershell|bash) and emit syntax that is valid for that"
-            " shell only."
-        ),
-        (
-            "Shell rules: cmd uses double quotes and caret escaping (^), never"
-            " backslash-escaped quotes like \\\"; powershell prefers single"
-            " quotes for literals and here-strings for longer scripts; bash uses"
-            " POSIX quoting (single quotes for literals)."
-        ),
-        (
-            "Before emitting complex one-liners, prefer a short probe command to"
-            " validate syntax in the active shell and then continue."
-        ),
-        (
-            "Use notes as a concise hint that explains what is happening now,"
-            " what just happened, and what I will do next, unless the goal is"
-            " complete."
-        ),
-        (
-            "When user feedback pause is enabled, include ask_user"
-            " (boolean) and user_question (string or null): set ask_user=true"
-            " only for one critical missing fact that blocks safe progress,"
-            " set command to null, and keep complete=false."
-        ),
-    ]
+BASE_SYSTEM_PROMPT_PARTS = [
+    "You are TerminalAI, an expert terminal orchestration assistant.",
+    (
+        "First orient yourself to the machine context and execution history,"
+        " then choose the single best next shell command for the user's goal."
+    ),
+    "Prefer safe, reversible, and idempotent operations.",
+    (
+        "Avoid destructive commands unless they are explicitly requested"
+        " and clearly justified by the goal."
+    ),
+    (
+        "If the goal is complete, or no command should be run, set"
+        " command to null and complete to true."
+    ),
+    (
+        "Return only the command body for the selected shell; do not wrap"
+        " commands with shell launchers like 'powershell -Command' or 'bash -lc'."
+    ),
+    (
+        "Always return strict JSON with keys: command (string or null),"
+        " notes (string or null), complete (boolean), phase"
+        " (analysis|mutation|verification|completion), expected_outcome"
+        " (string or null), verification_command (string or null), and"
+        " risk_level (low|medium|high or null)."
+    ),
+    (
+        "Respect runtime_context.shell_adapter (cmd|powershell|bash) and emit"
+        " syntax that is valid for that shell only."
+    ),
+    (
+        "Before emitting complex one-liners, prefer a short probe command to"
+        " validate syntax in the active shell and then continue."
+    ),
+    (
+        "Use notes as a concise hint that explains what is happening now,"
+        " what just happened, and what I will do next, unless the goal is"
+        " complete."
+    ),
+]
+
+SHELL_RULES_BY_ADAPTER = {
+    "cmd": (
+        "Shell rules: cmd uses double quotes and caret escaping (^), never"
+        ' backslash-escaped quotes like \\\".'
+    ),
+    "powershell": (
+        "Shell rules: powershell prefers single quotes for literals and"
+        " here-strings for longer scripts."
+    ),
+    "bash": "Shell rules: bash uses POSIX quoting (single quotes for literals).",
+}
+
+ASK_USER_PROMPT_PART = (
+    "Include ask_user (boolean) and user_question (string or null): set"
+    " ask_user=true only for one critical missing fact that blocks safe"
+    " progress, set command to null, and keep complete=false."
 )
 
 VALID_PHASES: set[DecisionPhase] = {"analysis", "mutation", "verification", "completion"}
@@ -103,7 +106,6 @@ class LLMClient:
     ) -> None:
         self.api_key = api_key
         self.model = model
-        self.system_prompt = DEFAULT_SYSTEM_PROMPT
         self.max_context_chars = max_context_chars
         self.reasoning_effort = reasoning_effort
         self.api_url = api_url
@@ -223,20 +225,9 @@ class LLMClient:
         input_messages: list[dict[str, str]] = [
             {
                 "role": "system",
-                "content": self.system_prompt,
+                "content": self._build_system_prompt(session_context),
             }
         ]
-        if self.allow_user_feedback_pause:
-            input_messages.append(
-                {
-                    "role": "system",
-                    "content": (
-                        "You may set ask_user=true and provide user_question only when a"
-                        " critical missing fact blocks safe progress. Ask only one concise"
-                        " question, set command to null, and set complete to false."
-                    ),
-                }
-            )
         input_messages.append(
             {
                 "role": "user",
@@ -268,6 +259,27 @@ class LLMClient:
         if self.reasoning_effort:
             payload["reasoning"] = {"effort": self.reasoning_effort}
         return payload
+
+    def _build_system_prompt(self, session_context: list[dict[str, object]]) -> str:
+        prompt_parts = [*BASE_SYSTEM_PROMPT_PARTS]
+        shell_adapter = self._active_shell_adapter(session_context)
+        if shell_adapter is not None:
+            shell_rules = SHELL_RULES_BY_ADAPTER.get(shell_adapter)
+            if shell_rules:
+                prompt_parts.append(shell_rules)
+        if self.allow_user_feedback_pause:
+            prompt_parts.append(ASK_USER_PROMPT_PART)
+        return " ".join(prompt_parts)
+
+    @staticmethod
+    def _active_shell_adapter(session_context: list[dict[str, object]]) -> str | None:
+        for event in reversed(session_context):
+            if event.get("type") != "runtime_context":
+                continue
+            shell_adapter = event.get("shell_adapter")
+            if isinstance(shell_adapter, str):
+                return shell_adapter.lower()
+        return None
 
     @staticmethod
     def _build_user_message(
