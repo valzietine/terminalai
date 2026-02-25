@@ -341,6 +341,50 @@ def test_main_uses_legacy_output_when_readable_cli_disabled(
     assert "=== Turn" not in out
 
 
+def test_main_adds_spacing_around_turn_output_when_auto_progress_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_argv = ["terminalai", "legacy output"]
+    monkeypatch.setattr("sys.argv", fake_argv)
+
+    class FakeAdapter:
+        name = "fake"
+
+    class FakeLoop:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def run(self, _goal: str, **_kwargs: object) -> list[SessionTurn]:
+            return [
+                SessionTurn(
+                    input="legacy output",
+                    command="echo resumed",
+                    output="ok\n",
+                    next_action_hint="next",
+                )
+            ]
+
+    def fake_config() -> AppConfig:
+        config = _fake_config()
+        config.readable_cli_output = False
+        config.auto_progress_turns = False
+        return config
+
+    monkeypatch.setattr(cli, "create_shell_adapter", lambda _name: FakeAdapter())
+    monkeypatch.setattr(cli, "AgentLoop", FakeLoop)
+    monkeypatch.setattr(
+        cli,
+        "AppConfig",
+        type("FakeConfig", (), {"from_env": staticmethod(fake_config)}),
+    )
+
+    assert cli.main() == 0
+
+    out = capsys.readouterr().out
+    assert "\n[1] $ echo resumed\nok\n\nhint: next\n\n" in out
+
+
 def test_main_allows_continuation_with_new_instruction(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

@@ -84,10 +84,16 @@ def main() -> int:
     def render_turn(turn: SessionTurn) -> None:
         nonlocal rendered_turn_count
         rendered_turn_count += 1
+        if not config.auto_progress_turns:
+            print()
         if config.readable_cli_output:
             print(_render_turn(turn, rendered_turn_count))
+            if not config.auto_progress_turns:
+                print()
             return
         _print_turn_legacy(turn, rendered_turn_count)
+        if not config.auto_progress_turns:
+            print()
 
     loop = AgentLoop(
         client=client,
