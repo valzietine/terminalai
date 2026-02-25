@@ -54,7 +54,50 @@ def test_payload_uses_hardcoded_system_prompt() -> None:
     assert "do not wrap" in system_prompt
     assert "powershell -Command" in system_prompt
     assert "runtime_context.shell_adapter" in system_prompt
+
+
+def test_payload_includes_shell_specific_guidance_for_cmd_only() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2")
+
+    payload = client._build_payload(
+        "test goal",
+        [{"type": "runtime_context", "shell_adapter": "cmd"}],
+    )
+    system_prompt = payload["input"][0]["content"]
+
+    assert "cmd uses double quotes and caret escaping" in system_prompt
     assert "never backslash-escaped quotes like \\\"" in system_prompt
+    assert "powershell prefers single quotes for literals" not in system_prompt
+    assert "bash uses POSIX quoting" not in system_prompt
+
+
+def test_payload_includes_shell_specific_guidance_for_powershell_only() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2")
+
+    payload = client._build_payload(
+        "test goal",
+        [{"type": "runtime_context", "shell_adapter": "powershell"}],
+    )
+    system_prompt = payload["input"][0]["content"]
+
+    assert "powershell prefers single quotes for literals" in system_prompt
+    assert "here-strings for longer scripts" in system_prompt
+    assert "cmd uses double quotes and caret escaping" not in system_prompt
+    assert "bash uses POSIX quoting" not in system_prompt
+
+
+def test_payload_includes_shell_specific_guidance_for_bash_only() -> None:
+    client = LLMClient(api_key=None, model="gpt-5.2")
+
+    payload = client._build_payload(
+        "test goal",
+        [{"type": "runtime_context", "shell_adapter": "bash"}],
+    )
+    system_prompt = payload["input"][0]["content"]
+
+    assert "bash uses POSIX quoting" in system_prompt
+    assert "cmd uses double quotes and caret escaping" not in system_prompt
+    assert "powershell prefers single quotes for literals" not in system_prompt
 
 
 def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
@@ -70,7 +113,7 @@ def test_payload_exposes_user_feedback_pause_controls_when_enabled() -> None:
     assert "ask_user" in schema["properties"]
     assert "user_question" in schema["properties"]
     assert "ask_user" in schema["required"]
-    assert "critical missing fact" in payload["input"][1]["content"]
+    assert "Include ask_user (boolean) and user_question" in payload["input"][0]["content"]
 
 
 def test_payload_hides_user_feedback_pause_controls_when_disabled() -> None:
@@ -81,6 +124,7 @@ def test_payload_hides_user_feedback_pause_controls_when_disabled() -> None:
     schema = payload["text"]["format"]["schema"]
     assert "ask_user" not in schema["properties"]
     assert "user_question" not in schema["properties"]
+    assert "Include ask_user (boolean) and user_question" not in payload["input"][0]["content"]
     assert len(payload["input"]) == 2
 
 

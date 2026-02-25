@@ -226,7 +226,7 @@ or platform defaults at runtime.
 }
 ```
 
-The model system prompt is hardcoded by the application and is not user-configurable.
+The model system prompt is hardcoded by the application and is not user-configurable. Shell-specific guidance and optional feature instructions (such as user-feedback pause behavior) are dynamically included based on the runtime context and active configuration.
 
 When both config file and environment variables are present, environment variables take precedence.
 
