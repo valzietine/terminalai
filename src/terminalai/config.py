@@ -45,6 +45,7 @@ class AppConfig:
     continuation_prompt_enabled: bool
     auto_progress_turns: bool
     readable_cli_output: bool
+    elevate_process: bool
     shell: str
     max_steps: int
     max_context_chars: int
@@ -116,6 +117,13 @@ class AppConfig:
                 default=_to_bool_from_object(
                     file_config.get("readable_cli_output"),
                     default=True,
+                ),
+            ),
+            elevate_process=_to_bool(
+                os.getenv("TERMINALAI_ELEVATE_PROCESS"),
+                default=_to_bool_from_object(
+                    file_config.get("elevate_process"),
+                    default=False,
                 ),
             ),
             shell=_resolve_shell(

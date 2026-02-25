@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import locale
+import os
+import re
 import shutil
 import subprocess
 
 from .base import CommandResult, PolicyHook, ShellAdapter
+
+_ALREADY_ELEVATED_PATTERN = re.compile(r"^\s*(sudo|doas|su\b)", re.IGNORECASE)
 
 
 class BashAdapter(ShellAdapter):
@@ -20,6 +24,7 @@ class BashAdapter(ShellAdapter):
         denylist_hook: PolicyHook | None = None,
         confirmation_mode: bool = True,
         fallback_to_sh: bool = True,
+        elevate_process: bool = False,
     ) -> None:
         super().__init__(
             allowlist_hook=allowlist_hook,
@@ -27,10 +32,15 @@ class BashAdapter(ShellAdapter):
             confirmation_mode=confirmation_mode,
         )
         self.executable = executable or _default_executable(fallback_to_sh=fallback_to_sh)
+        self.elevate_process = elevate_process
 
     @property
     def name(self) -> str:
         return "bash"
+
+    @property
+    def elevation_enabled(self) -> bool:
+        return self.elevate_process
 
     def execute(
         self,
@@ -53,6 +63,7 @@ class BashAdapter(ShellAdapter):
                 executed=False,
                 blocked=True,
                 block_reason=blocked_reason,
+                elevation_requested=self.elevate_process,
             )
             self.log_result(result)
             return result
@@ -65,37 +76,70 @@ class BashAdapter(ShellAdapter):
                 stdout="dry-run: command not executed",
                 stderr="",
                 executed=False,
+                elevation_requested=self.elevate_process,
             )
             self.log_result(result)
             return result
 
         started = self.monotonic_now()
+        run_command = command
+        elevated = False
+        elevation_error: str | None = None
+        if self.elevate_process:
+            if os.name == "nt":
+                elevation_error = (
+                    "Elevation requested with bash on Windows; sudo strategy is unsupported. "
+                    "Running without elevation."
+                )
+            elif _ALREADY_ELEVATED_PATTERN.match(command):
+                pass
+            elif shutil.which("sudo"):
+                run_command = f"sudo -- {command}"
+                elevated = True
+            else:
+                elevation_error = (
+                    "Elevation requested but sudo is not available in PATH; "
+                    "running without elevation."
+                )
+
         try:
             process = subprocess.run(
-                [self.executable, "-lc", command],
+                [self.executable, "-lc", run_command],
                 capture_output=True,
                 cwd=cwd,
                 timeout=timeout,
                 check=False,
                 text=False,
             )
+            stderr = _normalize_output(process.stderr)
+            if elevation_error:
+                stderr = f"{elevation_error}\n{stderr}" if stderr else elevation_error
             result = CommandResult(
                 command=command,
                 shell=self.name,
                 returncode=process.returncode,
                 stdout=_normalize_output(process.stdout),
-                stderr=_normalize_output(process.stderr),
+                stderr=stderr,
                 duration_seconds=self.monotonic_now() - started,
+                elevated=elevated,
+                elevation_requested=self.elevate_process,
+                elevation_error=elevation_error,
             )
         except subprocess.TimeoutExpired as exc:
+            stderr = _normalize_output(exc.stderr)
+            if elevation_error:
+                stderr = f"{elevation_error}\n{stderr}" if stderr else elevation_error
             result = CommandResult(
                 command=command,
                 shell=self.name,
                 returncode=124,
                 stdout=_normalize_output(exc.stdout),
-                stderr=_normalize_output(exc.stderr),
+                stderr=stderr,
                 timed_out=True,
                 duration_seconds=self.monotonic_now() - started,
+                elevated=elevated,
+                elevation_requested=self.elevate_process,
+                elevation_error=elevation_error,
             )
 
         self.log_result(result)

@@ -20,6 +20,7 @@
   "continuation_prompt_enabled": true,
   "auto_progress_turns": true,
   "readable_cli_output": true,
+  "elevate_process": false,
   "shell": null,
   "max_steps": 20,
   "max_context_chars": 12000,

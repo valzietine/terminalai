@@ -47,6 +47,9 @@ class CommandResult:
     executed: bool = True
     blocked: bool = False
     block_reason: str | None = None
+    elevated: bool = False
+    elevation_requested: bool = False
+    elevation_error: str | None = None
 
 
 class ShellAdapter(abc.ABC):
@@ -112,6 +115,7 @@ class ShellAdapter(abc.ABC):
                 "command": self._sanitize_command(command),
                 "timeout": timeout,
                 "dry_run": dry_run,
+                "elevation_requested": self.elevation_enabled,
             },
         )
 
@@ -125,6 +129,9 @@ class ShellAdapter(abc.ABC):
                 "duration_seconds": round(result.duration_seconds, 4),
                 "executed": result.executed,
                 "blocked": result.blocked,
+                "elevation_requested": result.elevation_requested,
+                "elevated": result.elevated,
+                "elevation_error": result.elevation_error,
                 "stdout_length": len(result.stdout),
                 "stderr_length": len(result.stderr),
             },
@@ -133,6 +140,10 @@ class ShellAdapter(abc.ABC):
     @staticmethod
     def monotonic_now() -> float:
         return time.monotonic()
+
+    @property
+    def elevation_enabled(self) -> bool:
+        return False
 
     def _sanitize_command(self, command: str) -> str:
         sanitized = command

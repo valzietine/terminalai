@@ -172,3 +172,97 @@ def test_bash_adapter_allows_destructive_command_when_confirmation_mode_disabled
     assert result.executed is False
     assert result.blocked is False
     assert result.returncode == 0
+
+
+def test_create_shell_adapter_threads_elevation_flag() -> None:
+    assert create_shell_adapter("bash", elevate_process=True).elevation_enabled is True
+    assert create_shell_adapter("cmd", elevate_process=False).elevation_enabled is False
+
+
+def test_bash_adapter_prefixes_sudo_when_elevation_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **_kwargs: object) -> SimpleNamespace:
+        assert args[0] == ["bash", "-lc", "sudo -- echo hello"]
+        return SimpleNamespace(returncode=0, stdout=b"hi", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("terminalai.shell.bash_adapter.os.name", "posix")
+    monkeypatch.setattr("terminalai.shell.bash_adapter.shutil.which", lambda name: "/usr/bin/sudo")
+
+    result = BashAdapter(executable="bash", elevate_process=True).execute(
+        "echo hello", confirmed=True
+    )
+
+    assert result.elevated is True
+    assert result.elevation_requested is True
+
+
+def test_bash_adapter_skips_sudo_if_command_already_elevated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **_kwargs: object) -> SimpleNamespace:
+        assert args[0] == ["bash", "-lc", "sudo apt update"]
+        return SimpleNamespace(returncode=0, stdout=b"ok", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("terminalai.shell.bash_adapter.os.name", "posix")
+
+    result = BashAdapter(executable="bash", elevate_process=True).execute(
+        "sudo apt update", confirmed=True
+    )
+
+    assert result.elevated is False
+
+
+def test_bash_adapter_falls_back_when_sudo_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: object, **_kwargs: object) -> SimpleNamespace:
+        assert args[0] == ["bash", "-lc", "echo hello"]
+        return SimpleNamespace(returncode=0, stdout=b"ok", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("terminalai.shell.bash_adapter.os.name", "posix")
+    monkeypatch.setattr("terminalai.shell.bash_adapter.shutil.which", lambda _name: None)
+
+    result = BashAdapter(executable="bash", elevate_process=True).execute(
+        "echo hello", confirmed=True
+    )
+
+    assert result.elevated is False
+    assert result.elevation_error is not None
+    assert "sudo is not available" in result.stderr
+
+
+def test_cmd_adapter_uses_runas_when_elevated(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
+        cmd = args[0]
+        assert cmd[0] == "powershell"
+        assert "Start-Process -FilePath 'cmd.exe' -Verb RunAs" in cmd[-1]
+        assert kwargs["cwd"] == "C:/repo"
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("terminalai.shell.cmd_adapter.os.name", "nt")
+
+    result = CmdAdapter(elevate_process=True).execute("echo hello", cwd="C:/repo", confirmed=True)
+
+    assert result.elevated is True
+    assert "UAC elevation boundary" in result.stdout
+
+
+def test_powershell_adapter_uses_runas_when_elevated(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*args: object, **_kwargs: object) -> SimpleNamespace:
+        cmd = args[0]
+        assert cmd[0] == "pwsh"
+        assert "Start-Process -FilePath 'pwsh' -Verb RunAs" in cmd[-1]
+        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("terminalai.shell.powershell_adapter.os.name", "nt")
+
+    result = PowerShellAdapter(executable="pwsh", elevate_process=True).execute(
+        "Write-Output hi", confirmed=True
+    )
+
+    assert result.elevated is True
+    assert result.elevation_requested is True

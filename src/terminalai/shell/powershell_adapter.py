@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import locale
+import os
 import shutil
 import subprocess
 
@@ -19,6 +20,7 @@ class PowerShellAdapter(ShellAdapter):
         allowlist_hook: PolicyHook | None = None,
         denylist_hook: PolicyHook | None = None,
         confirmation_mode: bool = True,
+        elevate_process: bool = False,
     ) -> None:
         super().__init__(
             allowlist_hook=allowlist_hook,
@@ -26,10 +28,15 @@ class PowerShellAdapter(ShellAdapter):
             confirmation_mode=confirmation_mode,
         )
         self.executable = executable or _default_executable()
+        self.elevate_process = elevate_process
 
     @property
     def name(self) -> str:
         return "powershell"
+
+    @property
+    def elevation_enabled(self) -> bool:
+        return self.elevate_process
 
     def execute(
         self,
@@ -52,6 +59,7 @@ class PowerShellAdapter(ShellAdapter):
                 executed=False,
                 blocked=True,
                 block_reason=blocked_reason,
+                elevation_requested=self.elevate_process,
             )
             self.log_result(result)
             return result
@@ -64,47 +72,99 @@ class PowerShellAdapter(ShellAdapter):
                 stdout="dry-run: command not executed",
                 stderr="",
                 executed=False,
+                elevation_requested=self.elevate_process,
             )
             self.log_result(result)
             return result
 
         started = self.monotonic_now()
+        run_args = [self.executable, "-NoProfile", "-NonInteractive", "-Command", command]
+        elevation_error: str | None = None
+        elevated = False
+        if self.elevate_process:
+            if os.name != "nt":
+                elevation_error = (
+                    "Elevation requested but PowerShell elevation is only supported on Windows; "
+                    "running without elevation."
+                )
+            else:
+                escaped = command.replace("'", "''")
+                run_args = [
+                    self.executable,
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    (
+                        f"Start-Process -FilePath '{self.executable}' -Verb RunAs "
+                        f"-ArgumentList '-NoProfile','-NonInteractive','-Command','{escaped}' -Wait"
+                    ),
+                ]
+                elevated = True
+
         try:
             process = subprocess.run(
-                [self.executable, "-NoProfile", "-NonInteractive", "-Command", command],
+                run_args,
                 capture_output=True,
                 cwd=cwd,
                 timeout=timeout,
                 check=False,
                 text=False,
             )
+            stderr = _normalize_output(process.stderr)
+            if elevation_error:
+                stderr = f"{elevation_error}\n{stderr}" if stderr else elevation_error
+            stdout = _normalize_output(process.stdout)
+            if elevated:
+                note = (
+                    "Command was launched through a UAC elevation boundary; "
+                    "child process output and precise exit codes may be unavailable."
+                )
+                stdout = f"{stdout}\n{note}" if stdout else note
             result = CommandResult(
                 command=command,
                 shell=self.name,
                 returncode=process.returncode,
-                stdout=_normalize_output(process.stdout),
-                stderr=_normalize_output(process.stderr),
+                stdout=stdout,
+                stderr=stderr,
                 duration_seconds=self.monotonic_now() - started,
+                elevated=elevated,
+                elevation_requested=self.elevate_process,
+                elevation_error=elevation_error,
             )
         except subprocess.TimeoutExpired as exc:
+            stderr = _normalize_output(exc.stderr)
+            if elevation_error:
+                stderr = f"{elevation_error}\n{stderr}" if stderr else elevation_error
             result = CommandResult(
                 command=command,
                 shell=self.name,
                 returncode=124,
                 stdout=_normalize_output(exc.stdout),
-                stderr=_normalize_output(exc.stderr),
+                stderr=stderr,
                 timed_out=True,
                 duration_seconds=self.monotonic_now() - started,
+                elevated=elevated,
+                elevation_requested=self.elevate_process,
+                elevation_error=elevation_error,
             )
         except FileNotFoundError:
+            missing = f"{self.name} executable not found: {self.executable}"
+            if self.elevate_process:
+                missing = (
+                    "PowerShell executable not found; cannot run elevated command. "
+                    f"Missing executable: {self.executable}"
+                )
             result = CommandResult(
                 command=command,
                 shell=self.name,
                 returncode=127,
                 stdout="",
-                stderr=f"{self.name} executable not found: {self.executable}",
+                stderr=missing,
                 executed=False,
                 duration_seconds=self.monotonic_now() - started,
+                elevated=False,
+                elevation_requested=self.elevate_process,
+                elevation_error=missing if self.elevate_process else None,
             )
 
         self.log_result(result)

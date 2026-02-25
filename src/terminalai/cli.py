@@ -39,7 +39,7 @@ def main() -> int:
     parser = build_parser()
     args = cast(CLIArgs, parser.parse_args())
     config = AppConfig.from_env()
-    adapter = create_shell_adapter(config.shell)
+    adapter = create_shell_adapter(config.shell, elevate_process=config.elevate_process)
 
     goal = args.goal or input("Goal: ").strip()
     if not goal:
@@ -66,6 +66,8 @@ def main() -> int:
             "working_directory": working_directory,
             "max_steps": config.max_steps,
             "safety_mode": config.safety_mode,
+            "elevation_requested": config.elevate_process,
+            "elevation_enabled": getattr(adapter, "elevation_enabled", False),
         },
     )
 

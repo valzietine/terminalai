@@ -376,3 +376,33 @@ def test_max_context_chars_loads_from_file_and_env(tmp_path, monkeypatch) -> Non
 
     env_config = AppConfig.from_env()
     assert env_config.max_context_chars == 2048
+
+
+def test_elevate_process_loads_from_file_and_env(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"elevate_process": True, "default_model": "gpt-5.2"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_ELEVATE_PROCESS", raising=False)
+
+    file_config = AppConfig.from_env()
+    assert file_config.elevate_process is True
+
+    monkeypatch.setenv("TERMINALAI_ELEVATE_PROCESS", "false")
+
+    env_config = AppConfig.from_env()
+    assert env_config.elevate_process is False
+
+
+def test_elevate_process_defaults_to_false(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(json.dumps({"default_model": "gpt-5.2"}), encoding="utf-8")
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_ELEVATE_PROCESS", raising=False)
+
+    config = AppConfig.from_env()
+    assert config.elevate_process is False
