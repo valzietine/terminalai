@@ -5,13 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from terminalai.shell import BashAdapter, CmdAdapter, PowerShellAdapter, create_shell_adapter
+from terminalai.shell import BashAdapter, PowerShellAdapter, create_shell_adapter
 
 
 @pytest.mark.parametrize(
     ("factory_input", "expected_type"),
     [
-        ("cmd", CmdAdapter),
         ("powershell", PowerShellAdapter),
         ("bash", BashAdapter),
         ("sh", BashAdapter),
@@ -27,31 +26,9 @@ def test_create_shell_adapter_invalid() -> None:
         create_shell_adapter("zsh")
 
 
-def test_cmd_adapter_dry_run() -> None:
-    result = CmdAdapter().execute("echo hello", dry_run=True)
-    assert result.executed is False
-    assert result.returncode == 0
-    assert "dry-run" in result.stdout
-
-
-def test_cmd_adapter_requires_confirmation() -> None:
-    result = CmdAdapter().execute("rm -rf ./tmp")
-    assert result.executed is False
-    assert result.blocked is True
-    assert "requires explicit confirmation" in result.stderr
-
-
-def test_cmd_adapter_runs_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
-        assert args[0] == ["cmd.exe", "/d", "/s", "/c", "echo hello"]
-        assert kwargs["timeout"] == 10
-        assert kwargs["cwd"] == "C:/work"
-        return SimpleNamespace(returncode=0, stdout=b"h\xe9llo", stderr=b"")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    result = CmdAdapter().execute("echo hello", cwd="C:/work", timeout=10, confirmed=True)
-    assert result.returncode == 0
-    assert result.stdout == "héllo"
+def test_create_shell_adapter_rejects_cmd() -> None:
+    with pytest.raises(ValueError, match="Unsupported shell adapter"):
+        create_shell_adapter("cmd")
 
 
 def test_powershell_adapter_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -96,26 +73,6 @@ def test_powershell_adapter_command_formatting(monkeypatch: pytest.MonkeyPatch) 
     assert result.returncode == 0
 
 
-def test_cmd_adapter_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
-        raise subprocess.TimeoutExpired(cmd=args[0], timeout=1, output=b"", stderr=b"too slow")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    result = CmdAdapter().execute("echo hello", timeout=1, confirmed=True)
-    assert result.timed_out is True
-    assert result.returncode == 124
-    assert result.stderr == "too slow"
-
-
-def test_cmd_adapter_missing_executable() -> None:
-    missing_executable = "C:/missing/cmd.exe"
-    result = CmdAdapter(executable=missing_executable).execute("echo hello", confirmed=True)
-
-    assert result.executed is False
-    assert result.returncode == 127
-    assert result.stderr == f"cmd executable not found: {missing_executable}"
-
-
 def test_powershell_adapter_missing_executable() -> None:
     missing_executable = "C:/missing/pwsh.exe"
     result = PowerShellAdapter(executable=missing_executable).execute(
@@ -125,17 +82,6 @@ def test_powershell_adapter_missing_executable() -> None:
     assert result.executed is False
     assert result.returncode == 127
     assert result.stderr == f"powershell executable not found: {missing_executable}"
-
-
-def test_cmd_adapter_nonzero_exit_handling(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
-        return SimpleNamespace(returncode=42, stdout=b"", stderr=b"bad command")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    result = CmdAdapter().execute("broken command", confirmed=True)
-    assert result.returncode == 42
-    assert result.stderr == "bad command"
-    assert result.timed_out is False
 
 
 def test_bash_adapter_runs_command(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -176,7 +122,7 @@ def test_bash_adapter_allows_destructive_command_when_confirmation_mode_disabled
 
 def test_create_shell_adapter_threads_elevation_flag() -> None:
     assert create_shell_adapter("bash", elevate_process=True).elevation_enabled is True
-    assert create_shell_adapter("cmd", elevate_process=False).elevation_enabled is False
+    assert create_shell_adapter("powershell", elevate_process=False).elevation_enabled is False
 
 
 def test_bash_adapter_prefixes_sudo_when_elevation_enabled(
@@ -231,23 +177,6 @@ def test_bash_adapter_falls_back_when_sudo_missing(monkeypatch: pytest.MonkeyPat
     assert result.elevated is False
     assert result.elevation_error is not None
     assert "sudo is not available" in result.stderr
-
-
-def test_cmd_adapter_uses_runas_when_elevated(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_run(*args: object, **kwargs: object) -> SimpleNamespace:
-        cmd = args[0]
-        assert cmd[0] == "powershell"
-        assert "Start-Process -FilePath 'cmd.exe' -Verb RunAs" in cmd[-1]
-        assert kwargs["cwd"] == "C:/repo"
-        return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setattr("terminalai.shell.cmd_adapter.os.name", "nt")
-
-    result = CmdAdapter(elevate_process=True).execute("echo hello", cwd="C:/repo", confirmed=True)
-
-    assert result.elevated is True
-    assert "UAC elevation boundary" in result.stdout
 
 
 def test_powershell_adapter_uses_runas_when_elevated(monkeypatch: pytest.MonkeyPatch) -> None:

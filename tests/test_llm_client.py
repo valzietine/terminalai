@@ -57,21 +57,6 @@ def test_payload_uses_hardcoded_system_prompt() -> None:
     assert "observations from the last command output" in system_prompt
 
 
-def test_payload_includes_shell_specific_guidance_for_cmd_only() -> None:
-    client = LLMClient(api_key=None, model="gpt-5.2")
-
-    payload = client._build_payload(
-        "test goal",
-        [{"type": "runtime_context", "shell_adapter": "cmd"}],
-    )
-    system_prompt = payload["input"][0]["content"]
-
-    assert "cmd uses double quotes and caret escaping" in system_prompt
-    assert "never backslash-escaped quotes like \\\"" in system_prompt
-    assert "powershell prefers single quotes for literals" not in system_prompt
-    assert "bash uses POSIX quoting" not in system_prompt
-
-
 def test_payload_includes_shell_specific_guidance_for_powershell_only() -> None:
     client = LLMClient(api_key=None, model="gpt-5.2")
 
@@ -83,7 +68,6 @@ def test_payload_includes_shell_specific_guidance_for_powershell_only() -> None:
 
     assert "powershell prefers single quotes for literals" in system_prompt
     assert "here-strings for longer scripts" in system_prompt
-    assert "cmd uses double quotes and caret escaping" not in system_prompt
     assert "bash uses POSIX quoting" not in system_prompt
 
 
@@ -97,7 +81,6 @@ def test_payload_includes_shell_specific_guidance_for_bash_only() -> None:
     system_prompt = payload["input"][0]["content"]
 
     assert "bash uses POSIX quoting" in system_prompt
-    assert "cmd uses double quotes and caret escaping" not in system_prompt
     assert "powershell prefers single quotes for literals" not in system_prompt
 
 
