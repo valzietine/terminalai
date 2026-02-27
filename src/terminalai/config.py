@@ -219,17 +219,16 @@ def _default_reasoning_effort(model: str) -> str | None:
     return None
 
 
-def _shell_value(value: str) -> str:
+def _shell_value(value: str) -> str | None:
     normalized = value.strip().lower()
     aliases = {
-        "cmd": "cmd",
         "powershell": "powershell",
         "pwsh": "powershell",
         "bash": "bash",
         "sh": "bash",
         "shell": "bash",
     }
-    return aliases.get(normalized, "powershell")
+    return aliases.get(normalized)
 
 
 def _default_shell_for_platform(os_name: str | None = None) -> str:
@@ -240,7 +239,20 @@ def _default_shell_for_platform(os_name: str | None = None) -> str:
 def _resolve_shell(value: str | None) -> str:
     if value is None:
         return _default_shell_for_platform()
-    return _shell_value(value)
+
+    normalized = _shell_value(value)
+    if normalized is not None:
+        return normalized
+
+    msg = (
+        "Unsupported shell value: "
+        f"{value!r}. Supported values are 'powershell' and 'bash' "
+        "(aliases: 'pwsh', 'sh', 'shell'). "
+        "Use 'powershell' or 'bash' instead of 'cmd'. "
+        "Update the 'shell' field in terminalai.config.json/local config, "
+        "or set TERMINALAI_SHELL accordingly."
+    )
+    raise ValueError(msg)
 
 
 def _to_positive_int(value: object, *, default: int) -> int:

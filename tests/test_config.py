@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import terminalai.config as config_module
 from terminalai.config import AppConfig, _default_shell_for_platform, _shell_value
 
@@ -215,7 +217,7 @@ def test_runtime_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
         json.dumps(
             {
                 "default_model": "gpt-5.2",
-                "shell": "cmd",
+                "shell": "powershell",
                 "max_steps": 11,
                 "cwd": "./test-dir",
             }
@@ -229,7 +231,7 @@ def test_runtime_options_load_from_file_and_env(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("TERMINALAI_CWD", raising=False)
 
     file_config = AppConfig.from_env()
-    assert file_config.shell == "cmd"
+    assert file_config.shell == "powershell"
     assert file_config.max_steps == 11
     assert file_config.working_directory == "./test-dir"
 
@@ -321,6 +323,36 @@ def test_shell_value_normalizes_bash_aliases() -> None:
     assert _shell_value("sh") == "bash"
     assert _shell_value("shell") == "bash"
     assert _shell_value("pwsh") == "powershell"
+
+
+def test_shell_value_rejects_unsupported_values() -> None:
+    assert _shell_value("cmd") is None
+    assert _shell_value("zsh") is None
+
+
+def test_shell_env_cmd_raises_validation_error(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(json.dumps({"default_model": "gpt-5.2"}), encoding="utf-8")
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.setenv("TERMINALAI_SHELL", "cmd")
+
+    with pytest.raises(ValueError, match="Use 'powershell' or 'bash' instead of 'cmd'"):
+        AppConfig.from_env()
+
+
+def test_shell_file_cmd_raises_validation_error(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "terminalai.config.json"
+    config_path.write_text(
+        json.dumps({"default_model": "gpt-5.2", "shell": "cmd"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TERMINALAI_CONFIG_FILE", str(config_path))
+    monkeypatch.delenv("TERMINALAI_SHELL", raising=False)
+
+    with pytest.raises(ValueError, match="terminalai.config.json/local config"):
+        AppConfig.from_env()
 
 
 def test_default_shell_for_platform_windows() -> None:

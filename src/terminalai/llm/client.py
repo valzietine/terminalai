@@ -38,7 +38,7 @@ BASE_SYSTEM_PROMPT_PARTS = [
         " risk_level (low|medium|high or null)."
     ),
     (
-        "Respect runtime_context.shell_adapter (cmd|powershell|bash) and emit"
+        "Respect runtime_context.shell_adapter (powershell|bash) and emit"
         " syntax that is valid for that shell only."
     ),
     (
@@ -53,10 +53,6 @@ BASE_SYSTEM_PROMPT_PARTS = [
 ]
 
 SHELL_RULES_BY_ADAPTER = {
-    "cmd": (
-        "Shell rules: cmd uses double quotes and caret escaping (^), never"
-        ' backslash-escaped quotes like \\\".'
-    ),
     "powershell": (
         "Shell rules: powershell prefers single quotes for literals and"
         " here-strings for longer scripts."

@@ -28,9 +28,9 @@ TerminalAI enforces shell guardrails by default. Commands matching destructive p
   - Linux (tested on modern POSIX environments): supported
   - macOS: expected to work as a POSIX target, but not yet explicitly documented/tested in this MVP
 - Shell adapters:
-  - Windows: `powershell` (default), `cmd` (explicit opt-in)
+  - Windows: `powershell` (default)
   - Linux/POSIX: `bash` (default)
-  - Optional cross-platform adapter alias: `pwsh` (PowerShell 7+, if installed)
+  - Optional aliases: `pwsh` -> `powershell`, and `sh`/`shell` -> `bash`
 
 ## Usage
 
@@ -151,7 +151,7 @@ next command proposal.
 When `TERMINALAI_ELEVATE_PROCESS=true`, `terminalai` attempts to run commands with elevated/admin privileges. This is opt-in and disabled by default.
 
 - On POSIX shells (`bash` adapter), terminalai prefixes commands with `sudo --` when possible (and only when the command is not already elevated).
-- On Windows (`cmd`/`powershell` adapters), terminalai uses a UAC elevation path (`Start-Process -Verb RunAs`). This launches a new elevated process boundary, so child stdout/stderr and exact exit status can be limited compared with non-elevated runs.
+- On Windows (`powershell` adapter), terminalai uses a UAC elevation path (`Start-Process -Verb RunAs`). This launches a new elevated process boundary, so child stdout/stderr and exact exit status can be limited compared with non-elevated runs.
 - If the platform/shell combination cannot elevate (for example, missing `sudo` on POSIX or non-Windows elevation request for Windows shells), terminalai falls back to non-elevated execution and reports a warning in command output/logs.
 
 Use elevation carefully: elevated commands can make system-wide changes and may trigger UAC/password prompts depending on OS policy.
@@ -181,7 +181,7 @@ At startup, `terminalai` does not preload repository files (such as `README.md`)
 - `TERMINALAI_CONTINUATION_PROMPT_ENABLED`: enables/disables the post-completion continuation question appended after the overarching goal is complete (default: `true`).
 - `TERMINALAI_AUTO_PROGRESS_TURNS`: when `true` (default), model turns run continuously; when `false`, the CLI pauses before each turn and waits for Enter/instructions.
 - `TERMINALAI_READABLE_CLI_OUTPUT`: when `true` (default), print structured turn sections (`[command]`, `[output]`, `[hint]/[question]`); when `false`, use legacy plain output.
-- `TERMINALAI_SHELL`: shell adapter (`cmd`, `powershell`, `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems.
+- `TERMINALAI_SHELL`: shell adapter (`powershell` or `bash`; aliases `pwsh`, `sh`, `shell`). If unset, defaults are platform-aware: `powershell` on Windows and `bash` on POSIX systems. Unsupported values (including `cmd`) raise a startup validation error with migration guidance to switch to `powershell` or `bash`.
 - `TERMINALAI_ELEVATE_PROCESS`: when `true`, request elevated/admin command execution paths for the active shell adapter (default: `false`).
 - `TERMINALAI_MAX_STEPS`: maximum model-execution iterations (default `20`).
 - `TERMINALAI_MAX_CONTEXT_CHARS`: maximum number of serialized `session_context` characters included per model request (default `12000`).
@@ -238,13 +238,14 @@ or platform defaults at runtime.
 
 The model system prompt is hardcoded by the application and is not user-configurable. Shell-specific guidance and optional feature instructions (such as user-feedback pause behavior) are dynamically included based on the runtime context and active configuration.
 
+`cmd` support was removed to improve syntax reliability with model-generated commands; `powershell` and `bash` have more predictable quoting/escaping behavior for this workflow.
+
 When both config file and environment variables are present, environment variables take precedence.
 
 #### Linux distro notes
 
 - `bash` should be installed and available in `PATH` (it is present by default on most mainstream distributions).
 - `pwsh` is optional on Linux and only needed if you explicitly select `TERMINALAI_SHELL=pwsh`/`powershell`.
-- `cmd` is Windows-specific and is not expected to be available on Linux distributions.
 
 
 ## Development workflow
